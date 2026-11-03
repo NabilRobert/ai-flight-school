@@ -8,7 +8,7 @@
 | P2 | The GitHub repo exists | Pushing anything | Arthur |
 | P3 | MIT licences on mcp-gateway and juku-agents (approved 2026-11-03) | Any future reuse of their code in the core (none planned in v1; running them for slice 6 is fine) | Their sessions |
 | P4 | Someone who hasn't seen the scenario library, for the blind realism check (about an hour) | Slice 7 | Arthur, asking around |
-| P5 | A top-up for the paid accuracy run, separate from Juku's $5 (approved, not a priority yet) | Slice 7 | Arthur |
+| P5 | Project 10's own top-up, separate from Juku's $5, $5 at most (approved, not a priority yet, not topped up), and Arthur's OK on each run's cap | Slice 7 | Arthur |
 | P6 | One developer who hasn't seen it, for the setup test; later, one support team | G7; any hosting decision | Arthur, asking around |
 
 ## Spikes (local, $0)
@@ -36,7 +36,7 @@ Each new test is mutation-checked once. Each slice updates `docs/guide.md`.
 | **4. Seed library** | Personas, goals, tactics; the sampler and hashes; the model-customer path (tested with `mockllm`); in-character checks | Thousands of scenarios from a few dozen entries; a changed entry changes the hash; the model path runs end to end at $0 | $0 |
 | **5. HTTP and MCP** | The chat endpoint contract (A2); the fake tools as an MCP server; the reference agent served over HTTP; key and outbound-call tests | The same verdicts over HTTP as in process; no key in any output; a timed setup by someone new (G7) | $0 |
 | **6. Shiori** | The observer adapter (A3); scenarios for her real risks; a scripted run against Juku's eval stack | Results reported as they are, including what can't be tested (no memory between turns) | $0 |
-| **7. Paid accuracy run (Should)** | Model customers against model-backed reference agents; miss rate per bug and tactic; the blind realism check | Arthur's OK for each paid run; numbers published with intervals | About $2 to $9, not funded |
+| **7. Paid accuracy run (Should)** | Model customers against model-backed reference agents; miss rate per bug and tactic; the blind realism check | Arthur's OK on each run's cap; the $5 lifetime check in code first; numbers published with intervals | At most $3.80 in caps, inside the $5 limit |
 | **8. Evidence and write-up** | Results from records; JOURNEY; portfolio entry (with the portfolio session) | Every number traces to a file | $0 |
 
 Slices 1 to 6 cost nothing and need nothing from Arthur except P1 and P2.
@@ -89,8 +89,9 @@ Full reasoning in [ADR-014](phase-5-architecture-decisions.md#adr-014-costs-the-
 | A team's model run, 600 conversations | About $3.50 customer side with gpt-5-mini, plus their agent's own cost; on their key |
 | Hosting | None in v1: it runs in the team's CI |
 
-**Slice 7's estimate (Arthur's money, not funded):** 7 reference variants
-× 30 scenarios × 3 epochs = 630 conversations.
+**Slice 7's estimate (Arthur's money: hard limit $5 in total, not topped
+up yet):** 7 reference variants × 30 scenarios × 3 epochs = 630
+conversations.
 
 | | gpt-5-mini | gpt-5-nano |
 |---|---|---|
@@ -98,6 +99,21 @@ Full reasoning in [ADR-014](phase-5-architecture-decisions.md#adr-014-costs-the-
 | Reference agent, about $0.0074 a conversation (8 turns × 2,500 in, 150 out) | $4.70 | $0.95 |
 | **Total** | **about $8.50** | **about $1.70** |
 
-Recommended: one nano run first, then a smaller mini run if the nano
-customer proves too weak to find the bugs. Prices are the harness's
-checked Sumopod prices (2026-10-23); Juku's $5 can't be used.
+The all-mini run doesn't fit the $5 limit, so it is dropped. **The plan,
+at most $3.80 in caps, leaving $1.20 of margin:**
+
+| Run | What | Conversations | Estimate | Cap |
+|---|---|---|---|---|
+| A | gpt-5-nano customer and agent | 630 | $1.70 | $2.00 |
+| B, only if A's customer finds too few bugs | gpt-5-mini customer, gpt-5-nano agent; 7 variants × 15 scenarios × 2 epochs | 210 | $1.58 | $1.80 |
+
+- The blind realism check takes its simulated chats from run A: no extra
+  cost.
+- Each run needs Arthur's OK on its cap before it starts. Before either
+  runs, the lifetime check (ADR-014) exists and has a test showing it
+  refuses a run that would cross $5.
+- After run A, the estimates are replaced by measured costs, and run B is
+  re-estimated before it is proposed.
+
+Prices are the harness's checked Sumopod prices (2026-10-23). Juku's $5
+can't be used. Slices 1 to 6 stay at $0.

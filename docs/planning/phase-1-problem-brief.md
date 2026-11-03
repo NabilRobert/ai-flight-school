@@ -127,7 +127,9 @@ Settled with Arthur, 2026-11-03: lead with measured accuracy.
    used loosely by aviation-training tools, so searches will be noisy.
 8. **Licences:** add MIT to mcp-gateway and juku-agents, through their
    sessions.
-9. **The paid accuracy run:** yes, but not a priority yet.
+9. **The paid accuracy run:** yes, but not a priority yet. Project 10 gets
+   its own top-up, separate from Juku's $5, with a hard limit of **$5 in
+   total**, enforced in code (ADR-014).
 
 Everything else in Phase 5 is a recommendation until Arthur agrees.
 

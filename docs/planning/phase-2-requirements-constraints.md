@@ -113,6 +113,9 @@ in Juku and the finance tracker. The build goes in slices
 - **C2.** A model run estimates its cost before starting and refuses to
   start over the budget (the harness's `budget`).
 - **C3.** Each trial has a cost cap, passed to Inspect.
+- **C4.** Arthur's own paid runs share a lifetime cap of $5. Before a run,
+  the money already spent plus this run's cap must be within it, or the
+  run refuses to start (ADR-014).
 
 **Security and privacy (ADR-015)**
 - **X1.** Model keys come from the environment only. They are never
@@ -172,8 +175,10 @@ tool-call log with arguments, violations, task success, tokens, cost.
 
 ## Constraints
 
-- **Money:** Arthur's model spend is $0. The $5 at Sumopod is Juku's. Every
-  paid run needs Arthur's OK and a top-up of its own.
+- **Money:** $0 until Arthur says he has topped up. Then Project 10 has its
+  own top-up, separate from Juku's $5, with a hard limit of $5 in total,
+  enforced in code (C4). Every paid run needs his OK on its cap, with the
+  cost estimated first.
 - **Stack:** Arthur's: Python, Inspect AI, Pydantic, Typer, pytest, uv,
   ruff, pyright. New dependencies need his OK (Phase 5).
 - **Dependencies' licences:** Apache-2.0 core. It can depend on MIT and
@@ -187,7 +192,7 @@ tool-call log with arguments, violations, task success, tokens, cost.
 
 | | Items |
 |---|---|
-| **Must** | R1–R5, S1–S3, S5, G1–G4, W1–W2, A1, M1–M3, C1, X1–X5 |
+| **Must** | R1–R5, S1–S3, S5, G1–G4, W1–W2, A1, M1–M3, C1, X1–X5; C4 before any paid run |
 | **Should** | S4, S6, S7, A2, W3, C2–C3, O1, the Shiori run |
 | **Could** | A3 beyond Shiori; Japanese and Indonesian personas; running rival tools on the same seeded agents |
 | **Won't (v1)** | Everything under Non-goals in Phase 1 |

@@ -270,8 +270,27 @@ being measured would grade itself.
 - Development and CI use scripted customers and scripted agents: $0.
 - Teams' model runs use their own key. The harness's `budget` estimates
   before the run and refuses over budget; each trial has a cost cap.
-- Arthur's paid runs (slice 7) need his OK and a top-up separate from
-  Juku's $5.
+- Arthur's paid runs (slice 7) use Project 10's own top-up, separate
+  from Juku's $5, with a **hard limit of $5 in total** (Arthur,
+  2026-11-03). Nothing is spent until he says he has topped up and OKs
+  that run's cap, with its cost estimated first.
+
+**The $5 is enforced in code, in layers:**
+1. **Per run, before:** the harness's `budget` estimates the cost and
+   refuses a run whose estimate is over its cap.
+2. **Per trial, during:** a cost cap passed to Inspect as `cost_limit`.
+3. **For the project, lifetime:** `LIFETIME_BUDGET_USD = 5.00`. Each paid
+   run's actual cost, summed from its records, goes in a small committed
+   ledger. A run starts only if the spend so far plus its *cap* (not its
+   estimate) is within $5, so a run that hits its cap still can't cross
+   the limit. The harness's cap can overshoot by one model call
+   (`budget.py`), so caps are planned with a margin.
+4. **At the provider:** a key used only by Project 10. If the provider
+   allows a spending limit per key, it is set to $5 too (unconfirmed).
+
+The lifetime check is better in the harness's `budget` module, where other
+projects could use it: it is offered to the harness's session first, and
+built here only if it doesn't fit there.
 
 **Estimate for a team's model run** (gpt-5-mini at the harness's checked
 Sumopod prices, $0.25 in and $2.00 out per million tokens, 2026-10-23):
@@ -382,8 +401,9 @@ Answered on 2026-11-03:
 - **Licences:** MIT goes on mcp-gateway and juku-agents, done by their
   sessions.
 - **Name:** AI Flight School; repo `ai-flight-school`.
-- **The paid accuracy run (slice 7):** yes, but not a priority yet. Until
-  it runs, the attacker's miss rate stays unmeasured, and the docs say so.
+- **The paid accuracy run (slice 7):** yes, but not a priority yet, with
+  its own top-up and a hard $5 lifetime limit (ADR-014). Until it runs,
+  the attacker's miss rate stays unmeasured, and the docs say so.
 
 Still open:
 1. **The blind realism check.** Recommended: one person who has never seen
