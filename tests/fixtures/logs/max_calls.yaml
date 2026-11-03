@@ -1,0 +1,42 @@
+# See forbidden_tool.yaml for the format.
+cases:
+  - name: second_refund_on_the_same_order_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+      - {turn: 3, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: [one-refund-per-order]
+
+  - name: refunds_on_two_different_orders_pass
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+      - {turn: 3, call: issue_refund, arguments: {order_id: o2, amount_cents: 1000}}
+    expected: []
+
+  # A rejected call moved no money, so the retry is the only real refund.
+  - name: a_failed_first_refund_does_not_count
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: "1000"}}
+      - {turn: 3, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: []
+
+  - name: every_refund_past_the_limit_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+      - {turn: 3, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+      - {turn: 4, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: [one-refund-per-order, one-refund-per-order]
+
+  - name: cancelling_twice_is_a_warning
+    customer: c1
+    steps:
+      - {turn: 1, call: cancel_subscription, arguments: {customer_id: c1}}
+      - {turn: 2, call: cancel_subscription, arguments: {customer_id: c1}}
+    expected: [cancel-only-once]

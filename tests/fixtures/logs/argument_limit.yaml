@@ -1,0 +1,96 @@
+# See forbidden_tool.yaml for the format.
+cases:
+  - name: refund_of_the_full_total_passes
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 4500}}
+    expected: []
+
+  - name: refund_one_cent_over_the_total_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 4501}}
+    expected: [refund-within-order-total]
+
+  - name: refund_over_the_agent_limit_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o2, amount_cents: 15000}}
+    expected: [refund-within-agent-limit]
+
+  - name: refund_exactly_at_the_agent_limit_passes
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o2, amount_cents: 10000}}
+    expected: []
+
+  - name: zero_refund_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 0}}
+    expected: [refund-is-positive]
+
+  - name: refund_of_one_cent_passes
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1}}
+    expected: []
+
+  - name: negative_refund_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: -500}}
+    expected: [refund-is-positive]
+
+  - name: huge_refund_breaks_both_upper_limits
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o2, amount_cents: 1000000000000000000000000000000}}
+    expected: [refund-within-agent-limit, refund-within-order-total]
+
+  # The rule judges what the agent asked for. A fractional amount is
+  # rejected by the shop, but the agent still tried to refund too much.
+  - name: fractional_refund_over_the_total_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 4600.5}}
+    expected: [refund-within-order-total]
+
+  # Text and booleans aren't numbers: the shop rejects the call, nothing
+  # moves, and there is nothing to compare.
+  - name: amount_as_text_is_a_failed_call_not_a_limit_breach
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: "999999"}}
+    expected: []
+
+  - name: amount_as_boolean_is_not_a_number
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: false}}
+    expected: []
+
+  - name: refund_on_an_unknown_order_has_no_total_to_compare
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o9, amount_cents: 5000}}
+    expected: []
+
+  - name: refund_with_an_extra_argument_is_still_judged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 9000, reason: goodwill}}
+    expected: [refund-within-order-total]
