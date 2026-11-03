@@ -6,10 +6,10 @@
 |---|---|---|---|
 | P1 | Arthur OKs Phases 1, 2 and 5 | Slice 1 | Arthur |
 | P2 | The GitHub repo exists | Pushing anything | Arthur |
-| P3 | Licences on mcp-gateway and juku-agents | Any future reuse of their code in the core (none planned in v1; running them for slice 6 is fine) | Arthur |
-| P4 | A person to do the blind realism check (about an hour) | Slice 7 | Arthur |
-| P5 | A top-up for the paid accuracy run, separate from Juku's $5 | Slice 7 | Arthur |
-| P6 | One outside team willing to try it | G7, and any hosting decision | Arthur |
+| P3 | MIT licences on mcp-gateway and juku-agents (approved 2026-11-03) | Any future reuse of their code in the core (none planned in v1; running them for slice 6 is fine) | Their sessions |
+| P4 | Someone who hasn't seen the scenario library, for the blind realism check (about an hour) | Slice 7 | Arthur, asking around |
+| P5 | A top-up for the paid accuracy run, separate from Juku's $5 (approved, not a priority yet) | Slice 7 | Arthur |
+| P6 | One developer who hasn't seen it, for the setup test; later, one support team | G7; any hosting decision | Arthur, asking around |
 
 ## Spikes (local, $0)
 
@@ -32,7 +32,7 @@ Each new test is mutation-checked once. Each slice updates `docs/guide.md`.
 |---|---|---|---|
 | **1. Rule checker and fake shop** | Repo scaffold, README, LICENSE, CI, complexity rules; the world and rule schemas; the fake shop's tools; the tool-call log; the checker; labelled logs | See below | $0 |
 | **2. Conversation loop** | The Inspect task: solver, scripted customer, in-process adapter (A1), scorer; records in the harness's format; turn limit and stop markers | A scripted conversation produces a record the harness's `compare` reads; a run with no stop marker is never a pass | $0 |
-| **3. Reference agents and the gate** | The correct and seeded-bug reference agents (scripted); the absolute and relative gate; exit codes; `flightsim run`; the GitHub Action; the $0 accuracy report | Every seeded bug found, every run; 0 false alarms on the correct variant; same seed gives the same verdict; CI blocks a seeded-bug branch | $0 |
+| **3. Reference agents and the gate** | The correct and seeded-bug reference agents (scripted); the absolute and relative gate; exit codes; `flightschool run`; the GitHub Action; the $0 accuracy report | Every seeded bug found, every run; 0 false alarms on the correct variant; same seed gives the same verdict; CI blocks a seeded-bug branch | $0 |
 | **4. Seed library** | Personas, goals, tactics; the sampler and hashes; the model-customer path (tested with `mockllm`); in-character checks | Thousands of scenarios from a few dozen entries; a changed entry changes the hash; the model path runs end to end at $0 | $0 |
 | **5. HTTP and MCP** | The chat endpoint contract (A2); the fake tools as an MCP server; the reference agent served over HTTP; key and outbound-call tests | The same verdicts over HTTP as in process; no key in any output; a timed setup by someone new (G7) | $0 |
 | **6. Shiori** | The observer adapter (A3); scenarios for her real risks; a scripted run against Juku's eval stack | Results reported as they are, including what can't be tested (no memory between turns) | $0 |
@@ -51,9 +51,9 @@ decides pass or fail, so it is built and proven first.
   `PLR0911`, `PLR0912`, `PLR0913`, `PLR0915`), pyright strict;
 - `.github/workflows/ci.yml`, `LICENSE` (Apache-2.0), a README with a
   layout section, `docs/guide.md`;
-- `flightsim/world/`: the world schema (Pydantic), a seeded copy per
+- `flight_school/world/`: the world schema (Pydantic), a seeded copy per
   conversation, the fake shop's tools, the tool-call log;
-- `flightsim/rules/`: the rule schema and the six checks in R2, as pure
+- `flight_school/rules/`: the rule schema and the six checks in R2, as pure
   functions;
 - `examples/shop/world.yaml` and `examples/shop/rules.yaml`;
 - `tests/fixtures/logs/*.yaml`: about 40 hand-written tool-call logs, each

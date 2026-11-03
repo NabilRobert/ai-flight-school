@@ -5,7 +5,7 @@ are recommendations, open until he agrees. The summary table and the first
 slice are at the end.
 
 ```
-team's CI ─► flightsim run (Typer CLI, GitHub Action)
+team's CI ─► flightschool run (Typer CLI, GitHub Action)
                │
    seed library ─► scenarios ─► Inspect task: conversation loop
                │                    │  customer: scripted ($0) or model (team's key)
@@ -319,7 +319,7 @@ needs Python 3.14.
 
 ## ADR-017: A CLI and a GitHub Action in v1; hosting later
 
-**Decision:** `flightsim` (Typer) with `run`, `check-rules` and `report`,
+**Decision:** `flightschool` (Typer) with `run`, `check-rules` and `report`,
 and a composite GitHub Action that installs it with uv and runs it. No
 server in v1.
 
@@ -378,18 +378,24 @@ Inspect, no network, $0. See the [slice plan](slice-plan.md).
 ## Open questions
 
 **For Arthur:**
-1. **Licences on mcp-gateway and juku-agents.** Neither has one. Add MIT
-   (like the others) so this project, and anyone, can reuse them?
-2. **Product name.** Keep `agent-flight-simulator` for the repo? It's
-   descriptive; a product name shouldn't lean on "Flight Simulator", which
-   is another company's product name.
-3. **The paid accuracy run (slice 7).** About $2 with gpt-5-nano, about $9
-   with gpt-5-mini (slice plan). Fund it, and when? Without it, the
-   attacker's miss rate stays unmeasured, and the docs say so.
-4. **The blind realism check** needs a person to label about 50
-   conversations, about an hour. You, or someone you ask?
-5. **An outside team.** G7 and the hosting question need one team to try
-   it. Anyone in mind?
+Answered on 2026-11-03:
+- **Licences:** MIT goes on mcp-gateway and juku-agents, done by their
+  sessions.
+- **Name:** AI Flight School; repo `ai-flight-school`.
+- **The paid accuracy run (slice 7):** yes, but not a priority yet. Until
+  it runs, the attacker's miss rate stays unmeasured, and the docs say so.
+
+Still open:
+1. **The blind realism check.** Recommended: one person who has never seen
+   the scenario library, about an hour, labelling 50 shuffled
+   conversations (25 simulated, 25 real). Arthur shouldn't label: he writes
+   the library, so he would recognise its scenarios. If no one can be
+   found, he labels and the report says "labelled by the builder, a weaker
+   check". It needs model-customer conversations, so it waits for slice 7.
+2. **Someone from outside.** Arthur will ask around. Ask one developer to
+   do both jobs: the 15-minute setup test (G7, any developer) and the
+   realism check. The hosting question needs a real support team, and
+   waits until one turns up.
 
 **For the spikes:** the harness's pins; Inspect's model roles with
 `mockllm` both sides; whether Strands Evals drives a non-Strands agent;

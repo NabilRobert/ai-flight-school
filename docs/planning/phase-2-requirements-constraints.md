@@ -13,13 +13,13 @@ in Juku and the finance tracker. The build goes in slices
    - `rules.yaml`: what must never happen, such as "a refund is at most
      the order total" or "no refund before `verify_identity` succeeds for
      that customer";
-   - `flightsim.yaml`: how to reach their agent, which scenarios to run,
+   - `flightschool.yaml`: how to reach their agent, which scenarios to run,
      and the gate's tolerance.
 2. **The agent is pointed at the simulator.** Its chat endpoint receives
    the simulated customer's messages. Its tools are the simulator's fakes,
    served over MCP or passed in Python, so every call is observed and
    nothing real happens (ADR-008, ADR-009).
-3. **A pull request runs the gate.** `flightsim run` in CI:
+3. **A pull request runs the gate.** `flightschool run` in CI:
    1. picks scenarios from the seed library (persona × goal × tactic);
    2. plays each one: the simulated customer speaks, the agent replies and
       calls tools, for up to a set number of turns;

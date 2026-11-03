@@ -7,8 +7,8 @@ call the agent makes against the team's rules. A refund over the order
 total, or one made before identity is checked, fails the build. It is the
 tenth portfolio piece.
 
-The working name is the repo's, `agent-flight-simulator`. The product name
-is open (see the end).
+The product is called **AI Flight School** (Arthur, 2026-11-03). The repo
+is `ai-flight-school` and the command is `flightschool`.
 
 ## Problem
 
@@ -95,7 +95,7 @@ Settled with Arthur, 2026-11-03: lead with measured accuracy.
 | G4 | CI costs nothing | The default gate runs with no model key | CI itself |
 | G5 | Same input, same verdict | A scripted run repeated with the same seed gives the same verdict | Test |
 | G6 | Keys and transcripts don't leak | No key in any log, record or trace; run outputs ignored by git | Test, and a grep in CI |
-| G7 | Easy to adopt | A new team adds it to CI in under 15 minutes from the README | Timed once, with someone who hasn't seen it |
+| G7 | Easy to adopt | A developer who hasn't seen it adds it to CI in under 15 minutes from the README | Timed once |
 | G8 | It works on an agent it wasn't built around | Shiori is run and the results reported as they are | Slice 6 report |
 
 ## Non-goals (v1)
@@ -123,6 +123,11 @@ Settled with Arthur, 2026-11-03: lead with measured accuracy.
 5. **Positioning:** lead with measured accuracy.
 6. **Demo:** a reference shop agent with seeded bugs first; Shiori second,
    for its real risks.
+7. **Name:** AI Flight School. No software product uses it; the phrase is
+   used loosely by aviation-training tools, so searches will be noisy.
+8. **Licences:** add MIT to mcp-gateway and juku-agents, through their
+   sessions.
+9. **The paid accuracy run:** yes, but not a priority yet.
 
 Everything else in Phase 5 is a recommendation until Arthur agrees.
 
