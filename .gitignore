@@ -1,0 +1,32 @@
+# Private notes and handovers never go in the repo.
+private/
+backups/
+HANDOVER*.md
+*.local.md
+
+# Secrets: customers' model keys and agent credentials included
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Run outputs: transcripts can hold customers' prompts, tool arguments and data
+runs/
+logs/
+*.log
+*.eval
+*.dump
+*.sql.gz
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
