@@ -285,8 +285,8 @@ being measured would grade itself.
    estimate) is within $5, so a run that hits its cap still can't cross
    the limit. The harness's cap can overshoot by one model call
    (`budget.py`), so caps are planned with a margin.
-4. **At the provider:** a key used only by Project 10. If the provider
-   allows a spending limit per key, it is set to $5 too (unconfirmed).
+4. **At the provider:** a key used only by Project 10, with Sumopod's
+   per-key budget set below $5, as Juku's key is.
 
 The lifetime check is better in the harness's `budget` module, where other
 projects could use it: it is offered to the harness's session first, and
