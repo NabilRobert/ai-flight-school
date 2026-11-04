@@ -6,9 +6,12 @@ tools are fakes held by the gate; **code**, not a model, checks every tool
 call against your rules. A refund over the order total, or one made before
 the customer's identity is checked, fails the build.
 
-**Status: slice 1 of 8.** This slice is the part that decides pass or fail:
-the rule checker and the fake shop. There are no simulated customers or
-agents yet. The plan is on the `docs/planning` branch.
+**Status: slice 2 of 8.** The rule checker and the fake shop (slice 1),
+and the conversation loop (slice 2): a scripted customer talks to an agent
+running in process, and each run is written as records the
+[agent-eval-harness](https://github.com/NabilRobert/agent-eval-harness)'s
+`compare` reads. There are no model customers and no reference agents yet.
+The plan is on the `docs/planning` branch.
 
 ## What works now
 
@@ -22,9 +25,17 @@ agents yet. The plan is on the `docs/planning` branch.
   `same_subject`, `forbidden_text`. A rule naming a tool, argument or field
   that doesn't exist fails on load, with a message saying what to fix.
 - **A checker** that turns a conversation's record into violations, with
-  no model and no I/O.
-- **46 hand-labelled conversations** (`tests/fixtures/logs/`), each marked
-  with the violations it must produce. The checker gets all of them right.
+  no model and no I/O. 46 hand-labelled conversations
+  (`tests/fixtures/logs/`) check it; it gets all of them right.
+- **Scenarios** (`examples/shop/scenarios.yaml`): who the customer is,
+  their lines, and how the shop's data should look afterwards.
+- **The conversation loop**, on [Inspect AI](https://inspect.aisi.org.uk/):
+  customer and agent take turns until the customer ends it with
+  `###DONE###` or `###GAVE_UP###`. Running out of turns or time is never a
+  pass, and an agent that crashes is an error, never a pass.
+- **Records in the harness's format** (`meta.json`, `trials.jsonl`), built
+  with the harness's own code. Its `compare` regrades them and gates a
+  changed agent against a baseline.
 
 ## Run it
 
@@ -32,7 +43,8 @@ agents yet. The plan is on the `docs/planning` branch.
 uv sync --extra dev && uv run pytest
 ```
 
-Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key, no network.
+Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key; the first
+`uv sync` fetches the harness from GitHub.
 
 ## Layout
 
@@ -41,9 +53,11 @@ Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key, no network.
 | `flight_school/world/` | The shop's data (`schema.py`) and its tools (`shop.py`) |
 | `flight_school/log.py` | The record of one conversation: calls and replies |
 | `flight_school/rules/` | The rule kinds (`schema.py`) and the checker (`checks.py`) |
+| `flight_school/conversation/` | Scenarios, the agent adapter, the loop, the scorer, the records |
 | `flight_school/config_files.py` | Loading YAML files, with errors that say what to fix |
-| `examples/shop/` | The example world and rules |
+| `examples/shop/` | The example world, rules and scenarios |
 | `tests/fixtures/logs/` | The labelled conversations, one file per rule kind |
+| `tests/scripted_agents.py` | Agents that make fixed calls, for the loop's tests |
 | `docs/guide.md` | How a check runs, step by step, and a glossary |
 
 ## Licence

@@ -29,7 +29,7 @@ jobs:
       - name: Type check (pyright, strict)
         run: uv run --frozen pyright flight_school/ tests/
 
-      # No model key and no network: the checker and the labelled logs are
-      # pure Python.
+      # No model key and no network: the checker is pure Python, and the
+      # conversation tests run Inspect with scripted sides and no model.
       - name: Test (pytest)
         run: uv run --frozen pytest -v

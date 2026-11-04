@@ -1,8 +1,56 @@
 # Guide
 
 How AI Flight School decides pass or fail, for someone reading the code
-for the first time. This covers slice 1: the fake shop and the rule
-checker. Simulated customers and agents arrive in slices 2 to 4.
+for the first time. This covers slices 1 and 2: the fake shop, the rule
+checker, and the conversation loop with a scripted customer. Model
+customers arrive in slice 4, and the release gate in slice 3.
+
+## The flow: one run
+
+A run plan goes in; a folder of records the harness can compare comes out.
+`tests/test_records.py` does exactly this, then hands the records to the
+harness's `compare`.
+
+```mermaid
+flowchart TD
+    P[RunPlan<br/>world, rules, scenarios, agent] -->|run_plan| T[Inspect task<br/>one sample per scenario]
+    T --> L[conversation solver]
+    L -->|customer line| A[agent's reply]
+    A -->|AgentTools.call| S[FakeShop<br/>private copy]
+    A -->|reply text| L
+    L -->|stop marker, or turn/time limit| SC[conversation_scorer]
+    SC -->|check| V[violations]
+    SC -->|result_match| G[task success]
+    SC --> X[export_run]
+    X --> R[meta.json + trials.jsonl]
+    R --> C[agent-eval compare]
+```
+
+1. **Make a plan.** `flight_school/conversation/plan.py: RunPlan` holds the
+   world, the rules, the scenarios, the agent's factory and the limits. It
+   checks itself when made: limits of at least 1, unique scenario ids, and
+   every scenario's customer and expected changes present in the world.
+2. **Build the Inspect task.** `conversation/run.py: build_task` makes one
+   Inspect sample per scenario, with the loop as solver, the checker as
+   scorer, and the time limit.
+3. **Run it.** `conversation/run.py: run_plan` calls Inspect with its
+   `none` model: nothing is sent to a provider, so the run costs $0.
+   Each scenario runs `epochs` times, each time on a fresh shop.
+4. **Take turns.** `conversation/loop.py: take_turns` gives the agent the
+   customer's next line, records its reply, and repeats. Only the
+   customer's stop marker ends the conversation. If the agent's turns run
+   out first, it raises Inspect's turn limit, which Inspect records and
+   still scores. The agent's tool calls go through
+   `conversation/agent.py: AgentTools`, which stamps the turn and hands
+   the agent a copy of each record.
+5. **Score it.** `conversation/scoring.py: conversation_scorer` runs the
+   rule checker over the shop's record (the slice 1 flow below), and the
+   harness's `result_match` grader over the shop's final data against
+   `scenario.py: expected_world`.
+6. **Write the records.** `conversation/records.py: export_run` builds each
+   trial with the harness's own `trial_from_sample` (pass, fail or error,
+   and the limit rule), adds the tool calls, violations and stop marker,
+   and writes them with the harness's `write_run`.
 
 ## The flow: checking one conversation
 
@@ -59,7 +107,15 @@ The checker reads calls in one of two ways, depending on the rule:
 
 | Term | Meaning | In the code |
 |---|---|---|
-| **Agent under test** | The team's support chatbot that the gate is testing | Not in slice 1 |
+| **Agent under test** | The team's support chatbot that the gate is testing | `conversation/agent.py: AgentFactory` |
+| **In-process adapter** | How a Python agent plugs in: a factory takes the shop's tools and returns a `reply` function for one conversation | `conversation/agent.py` |
+| **Scenario** | One conversation to run: who the customer is, their lines, and the changes the shop's data should show afterwards | `conversation/scenario.py: Scenario` |
+| **Stop marker** | `###DONE###` or `###GAVE_UP###`: how the customer ends a conversation. Only the customer's count | `scenario.py: STOP_MARKERS` |
+| **Turn limit** | The most replies the agent gets. Reaching it without a stop marker is a fail | `loop.py: DEFAULT_TURN_LIMIT` |
+| **Task success** | The shop's data after the conversation equals the data before it plus exactly the expected changes, as τ²-bench checks its database | `scoring.py: state_grade` |
+| **Trial** | One run of one scenario. `epochs` is Inspect's word for how many trials each scenario gets | One line of `trials.jsonl` |
+| **Run records** | `meta.json` and `trials.jsonl`: the harness's format, which its `compare` and `report` read | `conversation/records.py` |
+| **Data fingerprint** | A hash of the world and the rules. `compare` refuses to compare runs whose fingerprints differ | `records.py: data_fingerprint` |
 | **World** | The fake shop's data: customers and orders | `world/schema.py: World` |
 | **Fake shop** | Tools that act on a private copy of the world, so a test can't refund real money | `world/shop.py: FakeShop` |
 | **Tool call** | One request from the agent to a tool, as sent, with its outcome | `log.py: ToolCall` |
@@ -89,6 +145,17 @@ The six rule kinds:
 - Limits read from the world use its state before the conversation. Two
   refunds that each fit the order total can add up to more; the example
   rules stop that with `one-refund-per-order`.
+- The customer is scripted: it says its lines whatever the agent replies.
+  Customers that react come in slice 4.
+- An in-process agent is Python running in the same process, so it is
+  trusted code: the copies in `AgentTools` stop accidents, not an agent
+  written to cheat. Slice 5's HTTP adapter keeps the agent outside.
+- Each trial stores the whole world twice (expected and actual), which is
+  fine for a small fake shop and would need a diff for a large one.
+- Scripted runs record their cost as unknown, not $0: the harness prices
+  only model calls, and these runs make none.
+- An errored trial (the agent crashed) has `violations: null`, not `[]`:
+  it was never checked, so it can't count as clean.
 
 ## Where to change things
 
@@ -98,6 +165,15 @@ The six rule kinds:
 - **Change the example rules or data:** `examples/shop/rules.yaml` and
   `examples/shop/world.yaml`. Every labelled log is checked against them,
   so run the tests.
+- **Add a scenario:** a new entry in `examples/shop/scenarios.yaml`. Quote
+  the line with the stop marker: in YAML, an unquoted `" #"` starts a
+  comment and the marker is lost (the loader says so).
+- **Plug in an agent:** write a factory that takes `AgentTools` and returns
+  an async `reply(chat)`, as in `tests/scripted_agents.py`, and pass it in
+  a `RunPlan`.
+- **Change the turn or time limit:** `turn_limit` and `time_limit_seconds`
+  on `RunPlan`; the defaults and their reasons are in `loop.py` and
+  `plan.py`.
 - **Add a labelled conversation:** add a case to the file in
   `tests/fixtures/logs/` for the rule kind it's about. Name it as a
   sentence, list its steps, and list the rule ids it must break.
