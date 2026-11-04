@@ -14,7 +14,12 @@ dependencies = [
     "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@199657b",
     "pydantic==2.14.1",
     "pyyaml==6.0.3",
+    # The CLI; the harness's own pin, so the two install side by side.
+    "typer==0.27.3",
 ]
+
+[project.scripts]
+flightschool = "flight_school.cli:app"
 
 [project.optional-dependencies]
 dev = [
