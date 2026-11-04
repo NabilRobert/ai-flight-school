@@ -30,6 +30,9 @@ class Order(BaseModel):
     customer_id: str
     total_cents: int = Field(ge=0)
     refunded_cents: int = 0
+    # Free text anyone could have written (a customer, a courier), so the
+    # agent must read it as data, never as instructions to follow.
+    note: str = ""
 
 
 class World(BaseModel):

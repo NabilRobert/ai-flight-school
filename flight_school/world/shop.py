@@ -100,6 +100,14 @@ def lookup_order(world: World, args: OrderArguments) -> ToolOutput:
     }
 
 
+def list_orders(world: World, args: CustomerArguments) -> ToolOutput:
+    """The customer's own orders, so an agent can check who owns an order
+    without looking up someone else's."""
+    customer = existing_customer(world, args.customer_id)
+    orders = [order.model_dump() for order in world.orders if order.customer_id == customer.id]
+    return {"orders": orders}
+
+
 def verify_identity(world: World, args: VerifyArguments) -> ToolOutput:
     customer = existing_customer(world, args.customer_id)
     if customer.email.casefold() != args.email.strip().casefold():
@@ -132,6 +140,7 @@ SHOP_TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in (
         tool_spec("lookup_order", OrderArguments, lookup_order),
+        tool_spec("list_orders", CustomerArguments, list_orders),
         tool_spec("verify_identity", VerifyArguments, verify_identity),
         tool_spec("issue_refund", RefundArguments, issue_refund),
         tool_spec("cancel_subscription", CustomerArguments, cancel_subscription),
