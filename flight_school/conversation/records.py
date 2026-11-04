@@ -4,11 +4,13 @@
 Each trial is built by the harness's own `trial_from_sample`, so the
 pass/fail/error rules and the limit rule are the harness's, not a copy.
 Flight School adds three fields the harness ignores: the shop's record of
-tool calls, the rule violations, and the stop marker.
+tool calls, the rule violations (for every trial, errored ones too), and
+the stop marker.
 """
 
 import importlib.metadata
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,7 @@ from inspect_ai.util import Store
 from flight_school.conversation.loop import ConversationRecord
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.scoring import HARNESS_SCORER_NAME, harness_task
+from flight_school.rules.checks import check
 from flight_school.rules.schema import RuleSet
 from flight_school.world.schema import World
 from flight_school.world.shop import SHOP_TOOLS
@@ -41,17 +44,25 @@ def harness_commit() -> str | None:
     return vcs_info.get("commit_id")
 
 
-def trial_with_conversation(sample: EvalSample, task_hashes: dict[str, str]) -> dict[str, Any]:
+def trial_with_conversation(
+    sample: EvalSample, task_hashes: dict[str, str], plan: RunPlan
+) -> dict[str, Any]:
     trial = trial_from_sample(sample, task_hashes)
     record = ConversationRecord(store=Store(sample.store))
     score = (sample.scores or {}).get(HARNESS_SCORER_NAME)
-    checked: dict[str, Any] = (score.metadata or {}) if score else {}
     # The shop's record, from the store, so a trial that crashed still
     # shows what the agent did. (In process there are no Inspect tool
     # events for the harness to read.)
     trial["tool_calls"] = record.tool_calls
-    # None, not [], when the trial was never scored: unchecked isn't clean.
-    trial["violations"] = checked.get("violations")
+    if score is not None:
+        trial["violations"] = (score.metadata or {})["violations"]
+    else:
+        # Inspect doesn't score a trial that errored, but the checker is
+        # pure, so the calls made before the error are still checked: an
+        # agent that does harm and then crashes must block, not just be
+        # inconclusive. The trial stays an error either way.
+        violations = check(record.to_log(), plan.rules, plan.world)
+        trial["violations"] = [asdict(violation) for violation in violations]
     trial["stop_marker"] = record.stop_marker
     return trial
 
@@ -97,5 +108,5 @@ def build_meta(
 
 def export_run(log: EvalLog, run_dir: Path, plan: RunPlan) -> None:
     task_hashes = {s.id: task_hash(harness_task(plan.world, s)) for s in plan.scenarios}
-    trials = [trial_with_conversation(sample, task_hashes) for sample in log.samples or []]
+    trials = [trial_with_conversation(sample, task_hashes, plan) for sample in log.samples or []]
     write_run(run_dir, build_meta(log, trials, task_hashes, plan), trials)

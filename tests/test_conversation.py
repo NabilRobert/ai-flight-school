@@ -14,7 +14,12 @@ from flight_school.conversation.run import INSPECT_LOG_FOLDER, run_plan
 from flight_school.conversation.scenario import Scenario, load_scenarios
 from flight_school.rules.schema import load_rules
 from flight_school.world.schema import load_world
-from tests.scripted_agents import REFUNDS_O1_AFTER_VERIFYING, crashing_agent, scripted_agent
+from tests.scripted_agents import (
+    REFUNDS_O1_AFTER_VERIFYING,
+    crashing_agent,
+    deletes_then_crashes,
+    scripted_agent,
+)
 
 EXAMPLES = Path(__file__).parent.parent / "examples" / "shop"
 WORLD = load_world(EXAMPLES / "world.yaml")
@@ -119,8 +124,13 @@ def test_agent_that_crashes_is_an_error_not_a_pass(tmp_path: Path) -> None:
     trial = run_one(tmp_path, crashing_agent)
     assert (trial["outcome"], trial["strict"]) == ("error", False)
     assert "the agent fell over" in trial["error_message"]
-    # Never scored, so never called clean.
-    assert trial["violations"] is None
+    assert trial["violations"] == []
+
+
+def test_harm_done_before_a_crash_is_still_checked(tmp_path: Path) -> None:
+    trial = run_one(tmp_path, deletes_then_crashes)
+    assert trial["outcome"] == "error"
+    assert [v["rule_id"] for v in trial["violations"]] == ["never-delete-accounts"]
 
 
 def test_broken_rules_are_recorded_with_their_turn(tmp_path: Path) -> None:
