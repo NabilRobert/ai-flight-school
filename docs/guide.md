@@ -1,9 +1,53 @@
 # Guide
 
 How AI Flight School decides pass or fail, for someone reading the code
-for the first time. This covers slices 1 and 2: the fake shop, the rule
-checker, and the conversation loop with a scripted customer. Model
-customers arrive in slice 4, and the release gate in slice 3.
+for the first time. This covers slices 1 to 3: the fake shop, the rule
+checker, the conversation loop with a scripted customer, the release gate,
+and the reference agent that measures them. Model customers arrive in
+slice 4.
+
+## The flow: the gate in a team's CI
+
+`flightschool run examples/shop --agent flight_school.reference.agent:correct`
+runs every scenario against the agent and exits 0, 1 or 2. The GitHub
+Action (`action.yml`) runs that command in the team's repository.
+
+```mermaid
+flowchart TD
+    CLI[flightschool run SUITE --agent module:factory] -->|load_suite| SU[world, rules, scenarios]
+    CLI -->|load_agent| AG[the team's factory]
+    SU --> RP[RunPlan]
+    AG --> RP
+    RP -->|run_plan: the flow below| REC[records]
+    REC -->|judge| J{gate}
+    BASE[baseline records] -.->|--baseline| J
+    J -->|any critical violation| E1[exit 1: blocked]
+    J -->|a trial errored| E2[exit 2: inconclusive]
+    J -->|compare's exit code, or 0 with no baseline| E0[exit 0, 1 or 2]
+```
+
+1. **Load the suite.** `flight_school/suite.py: load_suite` reads
+   `world.yaml`, `rules.yaml` and `scenarios.yaml` from the folder and
+   checks each. A bad file exits 2 with a message naming it.
+2. **Load the agent.** `flight_school/cli.py: load_agent` imports
+   `module:attribute` from where the command runs, so a team's own module
+   imports as it does in their tests.
+3. **Run.** The plan runs as in the next section and writes its records
+   to `--out`.
+4. **Judge.** `flight_school/gate.py: judge` reads the records back:
+   - **any critical violation in any trial blocks** (exit 1). This is the
+     absolute gate, which the harness doesn't have;
+   - otherwise an errored trial makes the run **inconclusive** (exit 2);
+   - otherwise, with `--baseline`, task success goes through the
+     harness's `compare_runs` and its exit code stands; with no
+     baseline, the run passes and says success wasn't compared.
+5. **Report.** `cli.py: print_verdict` prints the verdict, each reason,
+   and each violation as `scenario#trial turn N rule: what happened`, so a
+   person can replay it.
+
+**Why both gates:** the accuracy report shows it. The agent that leaks
+the manager code changes nothing in the shop, so task success, and the
+harness's `compare` alone, see no difference. Only the rule catches it.
 
 ## The flow: one run
 
@@ -103,6 +147,29 @@ The checker reads calls in one of two ways, depending on the rule:
 - **What actually happened** (`requires_before`, `max_calls`). A failed
   identity check verifies nothing, and a refused refund moved no money.
 
+## Measuring Flight School itself
+
+`flightschool accuracy` runs the reference agent
+(`flight_school/reference/agent.py`) in its correct variant and seven
+seeded-bug variants. Each bug turns off one guard:
+
+| Variant | The guard it drops | Provoked by (scenario) | Caught by (rule) |
+|---|---|---|---|
+| `skips-verification` | Asks for the email before acting | `refund-without-proof` | `refund-needs-verification` |
+| `ignores-refund-limit` | Passes refunds over $100 to a manager | `refund-over-agent-limit` | `refund-within-agent-limit` |
+| `trusts-manager-claim` | Ignores "my manager approved it" | `claims-manager-approval` | `refund-within-agent-limit` |
+| `acts-on-others-orders` | Refunds only the customer's own orders | `refund-someone-elses-order` | `own-account-only` |
+| `leaks-manager-code` | Never says the manager code | `asks-for-manager-code` | `never-reveal-manager-code` |
+| `refunds-twice` | Won't refund an order twice | `asks-for-refund-again` | `one-refund-per-order` |
+| `obeys-order-notes` | Reads an order's note as data | `order-note-with-instructions` | `never-delete-accounts` |
+
+`flight_school/reference/accuracy.py` runs every variant 5 times on every
+scenario and judges each run against a baseline run of the correct
+variant. It builds the report from the records on disk, never from
+memory: `run_every_variant`, then `accuracy_from_records`, then `render`.
+The result is in [accuracy.md](accuracy.md), and CI fails if a bug is
+missed or the correct variant is blocked (`tests/test_accuracy.py`).
+
 ## Glossary
 
 | Term | Meaning | In the code |
@@ -124,6 +191,16 @@ The checker reads calls in one of two ways, depending on the rule:
 | **Severity** | `critical` rules will block a release; `warning` rules are only reported | `RuleBase.severity` |
 | **Violation** | One break of one rule, with its turn and a description | `rules/checks.py: Violation` |
 | **Labelled log** | A hand-written conversation record, marked with the violations it must produce | `tests/fixtures/logs/` |
+| **Suite** | A folder with `world.yaml`, `rules.yaml` and `scenarios.yaml`, named after the folder | `suite.py: load_suite` |
+| **Gate** | Turns a run's records into one exit code: 0 pass, 1 blocked, 2 inconclusive (the harness's codes) | `gate.py: judge` |
+| **Absolute gate** | Any critical violation in any trial blocks, however rare | `gate.py: exit_code_of` |
+| **Relative gate** | Task success compared with a baseline run by the harness's `compare` (pooled z-test) | `gate.py: judge`, `--baseline` |
+| **Baseline run** | The records of an agent version you trust, kept to compare later versions with | `--baseline` |
+| **Inconclusive** | The run can't say pass or fail: a trial errored, or `compare` couldn't decide | `gate.py: EXIT_INCONCLUSIVE` |
+| **Finding** | One violation as the gate reports it: scenario, trial, turn, rule and what happened | `gate.py: Finding` |
+| **Reference agent** | A rule-based shop agent with no model, shipped to measure Flight School | `reference/agent.py: ReferenceAgent` |
+| **Seeded bug** | A known fault put in the reference agent on purpose, so a missed bug can be counted | `reference/agent.py: Bug` |
+| **False alarm** | A violation or a block on the correct variant | `reference/accuracy.py: Accuracy.is_clean` |
 | **Mutation check** | Breaking the code on purpose to confirm a test fails, then restoring it | Done once per new test |
 
 The six rule kinds:
@@ -154,8 +231,21 @@ The six rule kinds:
   fine for a small fake shop and would need a diff for a large one.
 - Scripted runs record their cost as unknown, not $0: the harness prices
   only model calls, and these runs make none.
-- An errored trial (the agent crashed) has `violations: null`, not `[]`:
-  it was never checked, so it can't count as clean.
+- An errored trial (the agent crashed) is still checked, from the calls
+  it made before the crash: harm done before a crash blocks. The trial
+  still counts as an error, so a clean crash is inconclusive, never a pass.
+- The reference agent reads the customer with fixed patterns, and each
+  bug is provoked by a scenario written for it. So the $0 accuracy report
+  measures the checker and the gate, not how well a customer finds bugs.
+  That needs model customers and agents (slice 7, paid).
+- Every run is fully deterministic: scripted customer, scripted agent,
+  no sampling. Seeds arrive with the scenario sampler in slice 4.
+- If `flightschool` itself crashes, Python exits 1 with a traceback, the
+  same code as "blocked". CI fails either way.
+- The Action's CI job (`gate` in `.github/workflows/ci.yml`) can only run
+  once the repository is on GitHub. Its shell step was run locally from a
+  separate folder, with the correct agent (exit 0) and a seeded bug
+  (exit 1).
 
 ## Where to change things
 
@@ -169,8 +259,18 @@ The six rule kinds:
   the line with the stop marker: in YAML, an unquoted `" #"` starts a
   comment and the marker is lost (the loader says so).
 - **Plug in an agent:** write a factory that takes `AgentTools` and returns
-  an async `reply(chat)`, as in `tests/scripted_agents.py`, and pass it in
-  a `RunPlan`.
+  an async `reply(chat)`, as in `flight_school/reference/agent.py`, then
+  run `flightschool run SUITE --agent your_module:your_factory`.
+- **Gate in CI:** use the Action, as the `gate` job in
+  `.github/workflows/ci.yml` does, with `suite`, `agent` and, once you
+  keep one, `baseline`.
+- **Change what blocks:** `gate.py: exit_code_of`. A rule's `severity`
+  decides whether its violations count as critical.
+- **Add a seeded bug:** a name in `reference/agent.py: Bug`, the guard it
+  drops in `ReferenceAgent`, a variant at the bottom of the file, a
+  scenario that provokes it, and a `SeededBug` row in
+  `reference/accuracy.py`. Then regenerate the report with
+  `uv run flightschool accuracy --report docs/accuracy.md`.
 - **Change the turn or time limit:** `turn_limit` and `time_limit_seconds`
   on `RunPlan`; the defaults and their reasons are in `loop.py` and
   `plan.py`.
