@@ -1,0 +1,120 @@
+"""A scenario: who the simulated customer is, what they say, and how the
+shop's data should look when the conversation is over.
+
+Slice 2's scenarios are written out in full in `scenarios.yaml`, with a
+scripted customer. Slice 4 builds them from the seed library instead
+(persona × goal × tactic), and its goals carry the same `expect` block.
+
+Task success is judged the way τ²-bench judges it: the world after the
+conversation must equal the world before it with exactly the expected
+changes applied. A refund on the wrong order, or a second refund, changes
+a row nobody expected to change, and fails.
+"""
+
+from pathlib import Path
+from typing import Self
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from flight_school.config_files import ConfigFileError, KebabId, describe, load_model
+from flight_school.world.schema import COLLECTIONS, World
+
+# How a simulated customer ends a conversation (ADR-012). A conversation
+# that ends any other way (the turn limit) is never a pass.
+DONE_MARKER = "###DONE###"
+GAVE_UP_MARKER = "###GAVE_UP###"
+STOP_MARKERS = (DONE_MARKER, GAVE_UP_MARKER)
+
+# collection -> item id -> field -> its value after the conversation.
+ExpectedChanges = dict[str, dict[str, dict[str, object]]]
+Row = dict[str, object]
+
+
+def stop_marker_in(text: str) -> str | None:
+    return next((marker for marker in STOP_MARKERS if marker in text), None)
+
+
+class Scenario(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    id: KebabId
+    description: str = Field(min_length=1)
+    # Who the customer really is, whatever they claim in the chat.
+    customer_id: str
+    # The customer's lines, one per turn. The last one ends the
+    # conversation with a stop marker.
+    script: list[str] = Field(min_length=1)
+    expect: ExpectedChanges = {}
+
+    @model_validator(mode="after")
+    def check_stop_markers(self) -> Self:
+        if stop_marker_in(self.script[-1]) is None:
+            raise ValueError(
+                f"the script's last line must end the conversation with {' or '.join(STOP_MARKERS)}"
+                " (in YAML, quote that line: an unquoted ' #' starts a comment)"
+            )
+        for number, line in enumerate(self.script[:-1], start=1):
+            if stop_marker_in(line) is not None:
+                raise ValueError(
+                    f"line {number} has a stop marker, so the lines after it would never be said"
+                )
+        return self
+
+
+class ScenarioSet(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    scenarios: list[Scenario] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def check_unique_ids(self) -> Self:
+        ids = [scenario.id for scenario in self.scenarios]
+        repeated = sorted({scenario_id for scenario_id in ids if ids.count(scenario_id) > 1})
+        if repeated:
+            raise ValueError(f"scenario ids must be unique; repeated: {', '.join(repeated)}")
+        return self
+
+
+def load_scenarios(path: Path, world: World) -> ScenarioSet:
+    """Load and check every scenario against the world it will run in."""
+    scenario_set = load_model(path, ScenarioSet)
+    for scenario in scenario_set.scenarios:
+        try:
+            expected_world(world, scenario)
+        except ConfigFileError as error:
+            raise ConfigFileError(f"{path}: {error} Fix the file and run again.") from error
+    return scenario_set
+
+
+def expected_world(world: World, scenario: Scenario) -> World:
+    """The world as it should be after the scenario: `world` with the
+    scenario's expected changes applied, each one validated like the world
+    file itself (an unknown field or a wrong type is refused)."""
+    if world.customer(scenario.customer_id) is None:
+        raise ConfigFileError(f"scenario {scenario.id}: no customer {scenario.customer_id}.")
+    data = world.model_dump()
+    for collection, changes in scenario.expect.items():
+        if collection not in COLLECTIONS:
+            raise ConfigFileError(
+                f"scenario {scenario.id}: no collection {collection}; "
+                f"the collections are {', '.join(COLLECTIONS)}."
+            )
+        items_by_id: dict[str, Row] = {item["id"]: item for item in data[collection]}
+        for item_id, fields in changes.items():
+            if item_id not in items_by_id:
+                raise ConfigFileError(f"scenario {scenario.id}: no {collection} item {item_id}.")
+            items_by_id[item_id].update(fields)
+    try:
+        return World.model_validate(data)
+    except ValidationError as error:
+        raise ConfigFileError(f"scenario {scenario.id}: expect: {describe(error)}") from error
+
+
+def world_rows(world: World) -> list[Row]:
+    """Every item in the world as one row, tagged with its collection, in
+    the shape the harness's `result_match` grader compares."""
+    rows: list[Row] = []
+    for collection in COLLECTIONS:
+        items: list[BaseModel] = getattr(world, collection)
+        rows.extend({"collection": collection, **item.model_dump()} for item in items)
+    return rows
