@@ -11,7 +11,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     # The harness's record format, its graders and `compare` (ADR-018),
     # pinned to a commit as Juku pins it. It brings Inspect AI with it.
-    "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@2375581",
+    "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@199657b",
     "pydantic==2.14.1",
     "pyyaml==6.0.3",
 ]
@@ -39,10 +39,6 @@ max-complexity = 10
 # The folders CI type-checks, so the editor reports what CI reports.
 include = ["flight_school", "tests"]
 typeCheckingMode = "strict"
-# agent-eval-harness is typed (pyright strict in its own CI) but ships no
-# py.typed marker, so strict mode asks for stubs. Asked of the harness
-# session on 2026-11-04; remove this line once its pin has the marker.
-reportMissingTypeStubs = false
 venvPath = "."
 venv = ".venv"
 

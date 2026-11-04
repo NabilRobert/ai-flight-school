@@ -15,6 +15,8 @@ from flight_school.world.schema import World
 from tests.scripted_agents import REFUNDS_O1_AFTER_VERIFYING, scripted_agent
 from tests.test_conversation import CHATTY, REFUND_OWN_ORDER, REFUNDS_O1_ON_TURN_1, RULES, WORLD
 
+HARNESS_PIN = "199657b"  # as pinned in pyproject.toml
+
 # compare's broken-task rule needs at least 5 graded trials a side.
 EPOCHS = 5
 CORRECT = scripted_agent(REFUNDS_O1_AFTER_VERIFYING)
@@ -90,5 +92,5 @@ def test_meta_names_the_agent_and_the_harness_pin(tmp_path: Path) -> None:
     meta = load_run(run(tmp_path, CORRECT)).meta
     assert meta["status"] == "complete"
     assert meta["target"] == {"name": "scripted", "transport": "in-process", "address": None}
-    assert meta["provenance"]["harness_git"].startswith("2375581")
+    assert meta["provenance"]["harness_git"].startswith(HARNESS_PIN)
     assert meta["totals"]["pass_strict"] == EPOCHS
