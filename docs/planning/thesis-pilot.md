@@ -175,6 +175,13 @@ Agreed with the harness session. Its side is on branch
   should be large. With no judge noise, 50 pairs catch a 20-point drop 78%
   of the time and a 30-point drop 96% of the time (Project 2's numbers). A
   smaller drop is published as inconclusive.
+- **The harness side is built** (2026-11-04): `agent-eval compare --gate v3`
+  (paired, a 95% bootstrap interval over scenarios) and `agent-eval
+  plan-pairs`. They're on the harness's `feat/paired-gate` (adb959b), not
+  merged yet. Before the pilot runs: pin the harness at that merge commit,
+  check the pair count with `plan-pairs --baseline 0.8 --drop 0.3`, and
+  compare healthy against healthy again with `--gate v3` before the
+  degraded run.
 - **Time:** about 60 to 90 s per conversation, estimated; 150 conversations
   take about 2.5 to 4 hours. It is measured on the first 5 conversations
   before the full runs.
