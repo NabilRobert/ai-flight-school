@@ -148,21 +148,27 @@ Agreed with the harness session. Its side is on branch
     in both arms.
 - **Task hash:** the task's `prompt` holds the persona card and the goal
   and tactic text, so the hash covers the scenario.
-- **Meta:** a `customer` block holds the customer model, its file hash,
-  the llama-server build and the generation settings. The harness refuses
-  to compare runs whose customer differs. The agent variant's name, model
-  and settings go in the existing `agent` and `target` fields.
-- **Pass:** a harness grader, `customer_outcome` (spec `{pass_markers:
-  ["###DONE###"]}`, input `{stop_marker}`). It regrades with no model call.
-  Later, each rubric construct becomes its own grader, whose spec carries
-  the judge model and codebook hash.
-- **Per trial:** `divergence_turn`, the first turn where the two arms'
+- **The customer is part of the environment:** `provenance.data_fingerprint`
+  hashes the persona cards, the customer model file's hash, the
+  llama-server build and the generation settings. Each part is also listed
+  in provenance, for readers. The harness's `compare` already refuses runs
+  whose fingerprints differ (exit 2), so this needs no harness change. The
+  agent variant's name, model and settings go in the existing `agent` and
+  `target` fields.
+- **Pass:** the harness's existing `result_match` grader over one row:
+  expected `[{"stop_marker": "###DONE###"}]`, graded
+  `[{"stop_marker": <actual>}]`. It regrades exactly, with no model call
+  and no new grader kind. The suite's name and description say the pass is
+  "the simulator grading itself". Later, each rubric construct becomes its
+  own grader, whose spec carries the judge model and codebook hash.
+- **Per trial:** `diverged_at_turn`, the first turn where the two arms'
   agent replies differ. The gate doesn't use it; the thesis reports it.
 - **Reproducibility:** both arms run on the same Mac with the same server
   build and the same model file. llama.cpp's seeded output isn't promised
   to match across builds or hardware.
-- **ChatRecords:** Flight School's own export, beside the run. The harness
-  reads its records only.
+- **ChatRecords:** Flight School's own export, `chats.jsonl` beside the
+  run, with `chats_sha256` in `meta.provenance`. The harness neither reads
+  nor checks it: the gate decides from `trials.jsonl` alone.
 - **Degradation:** the agent never quotes a price, DP or instalment ("silakan
   datang ke showroom ya kak"). Price-first and credit questions are the
   most common behaviours in the pilot chats (19 and 16 of 40), so the drop
