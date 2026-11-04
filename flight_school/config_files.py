@@ -1,17 +1,22 @@
-"""Loading the YAML files a team writes (world, rules) into validated models.
+"""Loading the YAML files a team writes (world, rules, scenarios) into validated models.
 
 Every problem is reported as a `ConfigFileError` that names the file and
 says what to fix, so a bad file fails before anything runs.
 """
 
 from pathlib import Path
+from typing import Annotated
 
 import yaml
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
+
+# Rule and scenario ids: lower-case words joined by hyphens, so they read
+# well in a report and can't collide by case.
+KebabId = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")]
 
 
 class ConfigFileError(Exception):
-    """A world or rules file that can't be used as written."""
+    """A world, rules or scenarios file that can't be used as written."""
 
 
 def load_model[ModelT: BaseModel](path: Path, model: type[ModelT]) -> ModelT:

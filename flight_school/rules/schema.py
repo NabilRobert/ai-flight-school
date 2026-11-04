@@ -10,7 +10,7 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from flight_school.config_files import ConfigFileError, load_model
+from flight_school.config_files import ConfigFileError, KebabId, load_model
 from flight_school.world.schema import COLLECTIONS
 from flight_school.world.shop import SHOP_TOOLS
 
@@ -18,7 +18,7 @@ from flight_school.world.shop import SHOP_TOOLS
 class RuleBase(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    id: str = Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
+    id: KebabId
     # Only critical rules block a release; warnings are reported.
     severity: Literal["critical", "warning"]
 
