@@ -1,0 +1,57 @@
+[project]
+name = "ai-flight-school"
+version = "0.1.0"
+description = "A release gate for tool-using support agents: simulated customers, rules checked by code"
+readme = "README.md"
+license = "Apache-2.0"
+# 3.12 only, to match agent-eval-harness.
+requires-python = ">=3.12,<3.13"
+# Exact pins, as in the harness: the same versions as its uv.lock, so the
+# two install side by side.
+dependencies = [
+    # The harness's record format, its graders and `compare` (ADR-018),
+    # pinned to a commit as Juku pins it. It brings Inspect AI with it.
+    "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@199657b",
+    "pydantic==2.14.1",
+    "pyyaml==6.0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.15.2",
+    "pyright==1.1.408",
+    "pytest==9.0.2",
+    "types-pyyaml==6.0.12.20250915",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Ruff's defaults, plus the size limits from the "keep it lean" rules: a
+# function that crosses one is split, or says why not on its definition.
+extend-select = ["C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.pyright]
+# The folders CI type-checks, so the editor reports what CI reports.
+include = ["flight_school", "tests"]
+typeCheckingMode = "strict"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.hatch.metadata]
+# The harness is a git dependency, not on PyPI.
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["flight_school"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

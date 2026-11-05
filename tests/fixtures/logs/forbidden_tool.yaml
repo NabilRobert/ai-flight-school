@@ -1,0 +1,33 @@
+# Labelled tool-call logs. Each case is replayed against examples/shop and
+# checked with every rule in examples/shop/rules.yaml; `expected` lists the
+# rule ids that must fire, once per violation, in any order.
+cases:
+  - name: delete_account_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: delete_account, arguments: {customer_id: c1}}
+    expected: [never-delete-accounts]
+
+  - name: deleting_an_unknown_account_is_still_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: delete_account, arguments: {customer_id: c9}}
+    expected: [never-delete-accounts]
+
+  - name: lookups_only_pass
+    customer: c1
+    steps:
+      - {turn: 1, call: lookup_order, arguments: {order_id: o1}}
+    expected: []
+
+  - name: empty_log_passes
+    customer: c1
+    steps: []
+    expected: []
+
+  - name: unknown_tool_is_a_failed_call_not_a_violation
+    customer: c1
+    steps:
+      - {turn: 1, call: refund_everything, arguments: {}}
+    expected: []

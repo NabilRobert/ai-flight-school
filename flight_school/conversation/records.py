@@ -1,0 +1,101 @@
+"""A run's records in the harness's format (ADR-018): `meta.json` and
+`trials.jsonl`, which the harness's `compare` and `report` read.
+
+Each trial is built by the harness's own `trial_from_sample`, so the
+pass/fail/error rules and the limit rule are the harness's, not a copy.
+Flight School adds three fields the harness ignores: the shop's record of
+tool calls, the rule violations, and the stop marker.
+"""
+
+import importlib.metadata
+import json
+from pathlib import Path
+from typing import Any
+
+from agent_eval.export import EXPORT_VERSION, run_status, totals, trial_from_sample
+from agent_eval.records import ordered_json, sha256_hex, stable_json, task_hash, write_run
+from inspect_ai.log import EvalLog, EvalSample
+from inspect_ai.util import Store
+
+from flight_school.conversation.loop import ConversationRecord
+from flight_school.conversation.plan import RunPlan
+from flight_school.conversation.scoring import HARNESS_SCORER_NAME, harness_task
+from flight_school.rules.schema import RuleSet
+from flight_school.world.schema import World
+from flight_school.world.shop import SHOP_TOOLS
+
+
+def data_fingerprint(world: World, rules: RuleSet) -> str:
+    """The world and the rules a run was checked against. The harness's
+    `compare` refuses two runs whose fingerprints differ. Hashed from the
+    parsed files, so a comment edit doesn't make runs incomparable."""
+    return sha256_hex(stable_json({"world": world.model_dump(), "rules": rules.model_dump()}))
+
+
+def harness_commit() -> str | None:
+    """The harness commit installed, from the git pin in pyproject.toml."""
+    direct_url = importlib.metadata.distribution("agent-eval-harness").read_text("direct_url.json")
+    if direct_url is None:
+        return None
+    vcs_info: dict[str, Any] = json.loads(direct_url).get("vcs_info", {})
+    return vcs_info.get("commit_id")
+
+
+def trial_with_conversation(sample: EvalSample, task_hashes: dict[str, str]) -> dict[str, Any]:
+    trial = trial_from_sample(sample, task_hashes)
+    record = ConversationRecord(store=Store(sample.store))
+    score = (sample.scores or {}).get(HARNESS_SCORER_NAME)
+    checked: dict[str, Any] = (score.metadata or {}) if score else {}
+    # The shop's record, from the store, so a trial that crashed still
+    # shows what the agent did. (In process there are no Inspect tool
+    # events for the harness to read.)
+    trial["tool_calls"] = record.tool_calls
+    # None, not [], when the trial was never scored: unchecked isn't clean.
+    trial["violations"] = checked.get("violations")
+    trial["stop_marker"] = record.stop_marker
+    return trial
+
+
+def build_meta(
+    log: EvalLog, trials: list[dict[str, Any]], task_hashes: dict[str, str], plan: RunPlan
+) -> dict[str, Any]:
+    return {
+        "run_id": log.eval.run_id,
+        "created_at": log.eval.created,
+        "status": run_status(log.status, trials),
+        "inspect_status": log.status,
+        "suite": {
+            "name": plan.suite_name,
+            "sha256": sha256_hex(ordered_json(sorted(task_hashes.items()))),
+            "frozen": False,
+            "task_hashes": task_hashes,
+            "task_tags": {task_id: [] for task_id in task_hashes},
+        },
+        # Scripted runs cost nothing; slice 7 fills these for model runs.
+        "budget": None,
+        "price": None,
+        "target": {"name": plan.agent_name, "transport": "in-process", "address": None},
+        "agent": {
+            "model": plan.agent_name,
+            "model_args": {},
+            "system_prompt_sha256": None,
+            "system_prompt": None,
+            "tool_allowlist": sorted(SHOP_TOOLS),
+            "limits": {"turn_limit": plan.turn_limit},
+            "epochs": plan.epochs,
+        },
+        "provenance": {
+            "data_fingerprint": data_fingerprint(plan.world, plan.rules),
+            "models_reported": [],
+            "harness_git": harness_commit(),
+            "inspect_ai_version": importlib.metadata.version("inspect-ai"),
+        },
+        "export_version": EXPORT_VERSION,
+        "totals": totals(trials),
+    }
+
+
+def export_run(log: EvalLog, run_dir: Path, plan: RunPlan) -> None:
+    task_hashes = {s.id: task_hash(harness_task(plan.world, s)) for s in plan.scenarios}
+    trials = [trial_with_conversation(sample, task_hashes) for sample in log.samples or []]
+    write_run(run_dir, build_meta(log, trials, task_hashes, plan), trials)

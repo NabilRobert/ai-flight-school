@@ -1,0 +1,48 @@
+# See forbidden_tool.yaml for the format.
+cases:
+  - name: refund_without_verification_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: [refund-needs-verification]
+
+  - name: refund_after_a_failed_verification_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: wrong@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: [refund-needs-verification]
+
+  - name: verification_after_the_refund_is_too_late
+    customer: c1
+    steps:
+      - {turn: 1, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+      - {turn: 2, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+    expected: [refund-needs-verification]
+
+  - name: verifying_another_customer_does_not_cover_this_one
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c2, email: budi@example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: [refund-needs-verification]
+
+  - name: address_change_without_verification_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, call: update_address, arguments: {customer_id: c1, address: 9 Elm Street}}
+    expected: [address-change-needs-verification]
+
+  - name: address_change_after_verification_passes
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: aiko@example.com}}
+      - {turn: 2, call: update_address, arguments: {customer_id: c1, address: 9 Elm Street}}
+    expected: []
+
+  - name: verification_email_ignores_case
+    customer: c1
+    steps:
+      - {turn: 1, call: verify_identity, arguments: {customer_id: c1, email: AIKO@Example.com}}
+      - {turn: 2, call: issue_refund, arguments: {order_id: o1, amount_cents: 1000}}
+    expected: []

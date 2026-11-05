@@ -13,7 +13,7 @@ HANDOVER*.md
 
 # Run outputs: transcripts can hold customers' prompts, tool arguments and data
 runs/
-logs/
+/logs/
 *.log
 *.eval
 *.dump
