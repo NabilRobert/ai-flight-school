@@ -1,11 +1,10 @@
 # Guide
 
 How AI Flight School decides pass or fail, for someone reading the code
-for the first time. This covers slices 1 to 3: the fake shop, the rule
-checker, the conversation loop with a scripted customer, the release gate,
-and the reference agent that measures them. The project is paused after
-slice 3 (see the README's Status); model customers were planned for
-slice 4.
+for the first time. This covers slices 1 to 4: the fake shop, the rule
+checker, the conversation loop, the release gate, the reference agent
+that measures them, and the seed library that scenarios and model
+customers come from.
 
 ## The flow: the gate in a team's CI
 
@@ -81,21 +80,66 @@ flowchart TD
 3. **Run it.** `conversation/run.py: run_plan` calls Inspect with its
    `none` model: nothing is sent to a provider, so the run costs $0.
    Each scenario runs `epochs` times, each time on a fresh shop.
-4. **Take turns.** `conversation/loop.py: take_turns` gives the agent the
-   customer's next line, records its reply, and repeats. Only the
+4. **Take turns.** `conversation/loop.py: take_turns` asks the customer
+   (`conversation/customer.py`) for its next line, gives it to the agent,
+   records the reply, and repeats. A scripted customer says its
+   scenario's lines; a model customer is Inspect's `user` model role,
+   shown the chat from its own side. Only the
    customer's stop marker ends the conversation. If the agent's turns run
    out first, it raises Inspect's turn limit, which Inspect records and
    still scores. The agent's tool calls go through
    `conversation/agent.py: AgentTools`, which stamps the turn and hands
-   the agent a copy of each record.
+   the agent a copy of each record. When the chat ends, however it ends,
+   `conversation/character.py: character_breaks` checks the customer's
+   lines.
 5. **Score it.** `conversation/scoring.py: conversation_scorer` runs the
    rule checker over the shop's record (the slice 1 flow below), and the
    harness's `result_match` grader over the shop's final data against
    `scenario.py: expected_world`.
 6. **Write the records.** `conversation/records.py: export_run` builds each
    trial with the harness's own `trial_from_sample` (pass, fail or error,
-   and the limit rule), adds the tool calls, violations and stop marker,
-   and writes them with the harness's `write_run`.
+   and the limit rule), adds the tool calls, violations, stop marker and
+   character breaks, and writes them with the harness's `write_run`.
+
+## The flow: from the seed library to scenarios
+
+`flightschool run examples/shop --agent ... --sample 50 --seed 1` runs 50
+scenarios drawn from `examples/shop/library/` instead of the hand-written
+`scenarios.yaml`.
+
+```mermaid
+flowchart TD
+    P[personas.yaml] --> LL[load_library]
+    G[goals.yaml] --> LL
+    T[tactics.yaml] --> LL
+    LL -->|check_entries| LIB[Library: 12 × 10 × 12 = 1,440 crossings]
+    LIB -->|sample_scenarios N, seed| X[N crossings, the same for the same seed]
+    X -->|scenario_from| S[Scenario: script, customer prompt, mentions]
+    S --> RP[RunPlan, then the flow above]
+```
+
+1. **Load and check.** `library/sampler.py: load_library` reads the three
+   files. `check_entries` builds a scenario through every entry, so a stop
+   marker in the wrong place, an `expect` the world can't hold, or a
+   scripted line that would fail the in-character checks fails on load.
+2. **Sample.** `sample_scenarios` lists every persona × goal × tactic and
+   picks N with Python's `random.Random(seed)`, so the same seed and
+   library give the same scenarios.
+3. **Build each scenario.** `scenario_from` joins the three:
+   - **script:** the persona's opening, then the goal's lines, with the
+     tactic's lines just before the goal's last line;
+   - **customer prompt:** `PROMPT_TEMPLATE` filled with the three
+     descriptions, for a model customer;
+   - **mentions:** what the customer must bring up, from the goal;
+   - **id:** `goal.persona.tactic`, for example
+     `refund-own-order.angry.insists`.
+   Every field of the three entries ends up in the scenario, so editing
+   one changes its task hash, and the harness's `compare` refuses to
+   compare old runs with new ones.
+4. **Pick the customer.** With `--customer-model`, `RunPlan` refuses any
+   scenario without a prompt, `run_plan` sets Inspect's `user` role to
+   that model, and the loop uses `customer.py: model_customer`. Without
+   it, every customer is scripted and the run costs $0.
 
 ## The flow: checking one conversation
 
@@ -183,7 +227,7 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **Task success** | The shop's data after the conversation equals the data before it plus exactly the expected changes, as τ²-bench checks its database | `scoring.py: state_grade` |
 | **Trial** | One run of one scenario. `epochs` is Inspect's word for how many trials each scenario gets | One line of `trials.jsonl` |
 | **Run records** | `meta.json` and `trials.jsonl`: the harness's format, which its `compare` and `report` read | `conversation/records.py` |
-| **Data fingerprint** | A hash of the world and the rules. `compare` refuses to compare runs whose fingerprints differ | `records.py: data_fingerprint` |
+| **Data fingerprint** | A hash of the world, the rules and the customer (scripted, or the model's name). `compare` refuses to compare runs whose fingerprints differ | `records.py: data_fingerprint` |
 | **World** | The fake shop's data: customers and orders | `world/schema.py: World` |
 | **Fake shop** | Tools that act on a private copy of the world, so a test can't refund real money | `world/shop.py: FakeShop` |
 | **Tool call** | One request from the agent to a tool, as sent, with its outcome | `log.py: ToolCall` |
@@ -192,16 +236,25 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **Severity** | `critical` rules will block a release; `warning` rules are only reported | `RuleBase.severity` |
 | **Violation** | One break of one rule, with its turn and a description | `rules/checks.py: Violation` |
 | **Labelled log** | A hand-written conversation record, marked with the violations it must produce | `tests/fixtures/logs/` |
-| **Suite** | A folder with `world.yaml`, `rules.yaml` and `scenarios.yaml`, named after the folder | `suite.py: load_suite` |
+| **Suite** | A folder with `world.yaml`, `rules.yaml` and `scenarios.yaml`, and optionally a `library/`, named after the folder | `suite.py: load_suite` |
 | **Gate** | Turns a run's records into one exit code: 0 pass, 1 blocked, 2 inconclusive (the harness's codes) | `gate.py: judge` |
 | **Absolute gate** | Any critical violation in any trial blocks, however rare | `gate.py: exit_code_of` |
 | **Relative gate** | Task success compared with a baseline run by the harness's `compare` (pooled z-test) | `gate.py: judge`, `--baseline` |
 | **Baseline run** | The records of an agent version you trust, kept to compare later versions with | `--baseline` |
-| **Inconclusive** | The run can't say pass or fail: a trial errored, or `compare` couldn't decide | `gate.py: EXIT_INCONCLUSIVE` |
+| **Inconclusive** | The run can't say pass or fail: a trial errored, the customer broke character, or `compare` couldn't decide | `gate.py: EXIT_INCONCLUSIVE` |
 | **Finding** | One violation as the gate reports it: scenario, trial, turn, rule and what happened | `gate.py: Finding` |
 | **Reference agent** | A rule-based shop agent with no model, shipped to measure Flight School | `reference/agent.py: ReferenceAgent` |
 | **Seeded bug** | A known fault put in the reference agent on purpose, so a missed bug can be counted | `reference/agent.py: Bug` |
 | **False alarm** | A violation or a block on the correct variant | `reference/accuracy.py: Accuracy.is_clean` |
+| **Seed library** | Hand-written personas, goals and tactics that cross into scenarios | `examples/shop/library/`, `library/schema.py` |
+| **Persona** | Who the customer is: tone only, never what they want | `library/schema.py: Persona` |
+| **Goal** | What the customer wants, how a scripted one asks, and what the shop should look like afterwards | `library/schema.py: Goal` |
+| **Tactic** | How the customer pushes: a manager's approval, a pasted instruction, urgency | `library/schema.py: Tactic` |
+| **Crossing** | One persona × goal × tactic: one scenario | `library/sampler.py: scenario_from` |
+| **Seed** | Picks which crossings `--sample` draws; also sent to a model customer so the provider can repeat its sampling | `sample_scenarios`, `Scenario.seed` |
+| **Model customer** | A model playing the customer from the scenario's prompt, as Inspect's `user` role | `conversation/customer.py: model_customer` |
+| **`mockllm`** | Inspect's fake model provider; the tests use it to play a model customer at $0 | `tests/test_model_customer.py` |
+| **Character break** | A sign the model customer stopped playing its part: it called itself an AI or a test, flipped roles, quoted its prompt, or never raised its goal. The run is inconclusive | `conversation/character.py` |
 | **Mutation check** | Breaking the code on purpose to confirm a test fails, then restoring it | Done once per new test |
 
 The six rule kinds:
@@ -223,8 +276,15 @@ The six rule kinds:
 - Limits read from the world use its state before the conversation. Two
   refunds that each fit the order total can add up to more; the example
   rules stop that with `one-refund-per-order`.
-- The customer is scripted: it says its lines whatever the agent replies.
-  Customers that react were planned for slice 4, not built.
+- A scripted customer says its lines whatever the agent replies. A model
+  customer reacts, but has only been run on `mockllm`: no real model has
+  played one yet, so how well it finds bugs is unmeasured (slice 7).
+- The in-character checks catch only crude breaks: fixed phrases, eight
+  copied words, a goal never raised. A customer that drifts politely off
+  its goal passes them; the blind human check (S7) is for that.
+- A tactic's scripted lines are fixed text, so the rule-based reference
+  agent only reacts to the ones that use its words ("refund", "code",
+  "manager ... approved"). A model-backed agent would read them all.
 - An in-process agent is Python running in the same process, so it is
   trusted code: the copies in `AgentTools` stop accidents, not an agent
   written to cheat. Slice 5's HTTP adapter, not built, would keep the
@@ -240,8 +300,9 @@ The six rule kinds:
   bug is provoked by a scenario written for it. So the $0 accuracy report
   measures the checker and the gate, not how well a customer finds bugs.
   That needs model customers and agents (slice 7, paid, not built).
-- Every run is fully deterministic: scripted customer, scripted agent,
-  no sampling. Seeds were planned with the scenario sampler in slice 4.
+- A scripted run is fully deterministic. A model customer gets the
+  scenario's seed, but providers don't all honour seeds, so its runs can
+  differ.
 - If `flightschool` itself crashes, Python exits 1 with a traceback, the
   same code as "blocked". CI fails either way.
 - The Action's CI job (`gate` in `.github/workflows/ci.yml`) can only run
@@ -260,6 +321,14 @@ The six rule kinds:
 - **Add a scenario:** a new entry in `examples/shop/scenarios.yaml`. Quote
   the line with the stop marker: in YAML, an unquoted `" #"` starts a
   comment and the marker is lost (the loader says so).
+- **Add a persona, goal or tactic:** a new entry in
+  `examples/shop/library/personas.yaml`, `goals.yaml` or `tactics.yaml`.
+  A tactic changes how the customer pushes, never what a correct agent
+  should do, so its lines carry no ids or emails. Loading checks every
+  entry; `tests/test_library.py` pins the count of crossings.
+- **Change the model customer's prompt:** `library/sampler.py:
+  PROMPT_TEMPLATE`. **Change the in-character checks:**
+  `conversation/character.py`.
 - **Plug in an agent:** write a factory that takes `AgentTools` and returns
   an async `reply(chat)`, as in `flight_school/reference/agent.py`, then
   run `flightschool run SUITE --agent your_module:your_factory`.
