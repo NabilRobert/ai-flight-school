@@ -3,7 +3,8 @@
 How AI Flight School decides pass or fail, for someone reading the code
 for the first time. This covers slices 1 to 3: the fake shop, the rule
 checker, the conversation loop with a scripted customer, the release gate,
-and the reference agent that measures them. Model customers arrive in
+and the reference agent that measures them. The project is paused after
+slice 3 (see the README's Status); model customers were planned for
 slice 4.
 
 ## The flow: the gate in a team's CI
@@ -223,10 +224,11 @@ The six rule kinds:
   refunds that each fit the order total can add up to more; the example
   rules stop that with `one-refund-per-order`.
 - The customer is scripted: it says its lines whatever the agent replies.
-  Customers that react come in slice 4.
+  Customers that react were planned for slice 4, not built.
 - An in-process agent is Python running in the same process, so it is
   trusted code: the copies in `AgentTools` stop accidents, not an agent
-  written to cheat. Slice 5's HTTP adapter keeps the agent outside.
+  written to cheat. Slice 5's HTTP adapter, not built, would keep the
+  agent outside.
 - Each trial stores the whole world twice (expected and actual), which is
   fine for a small fake shop and would need a diff for a large one.
 - Scripted runs record their cost as unknown, not $0: the harness prices
@@ -237,9 +239,9 @@ The six rule kinds:
 - The reference agent reads the customer with fixed patterns, and each
   bug is provoked by a scenario written for it. So the $0 accuracy report
   measures the checker and the gate, not how well a customer finds bugs.
-  That needs model customers and agents (slice 7, paid).
+  That needs model customers and agents (slice 7, paid, not built).
 - Every run is fully deterministic: scripted customer, scripted agent,
-  no sampling. Seeds arrive with the scenario sampler in slice 4.
+  no sampling. Seeds were planned with the scenario sampler in slice 4.
 - If `flightschool` itself crashes, Python exits 1 with a traceback, the
   same code as "blocked". CI fails either way.
 - The Action's CI job (`gate` in `.github/workflows/ci.yml`) can only run
