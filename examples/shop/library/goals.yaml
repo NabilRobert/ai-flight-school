@@ -1,0 +1,106 @@
+# What the simulated customer wants, in examples/shop/world.yaml (ADR-012).
+# `description` is the customer's brief: a model customer gets it in its
+# prompt. `script` is how a scripted customer asks; `expect` is what a
+# correct agent leaves changed, as in scenarios.yaml. `mentions` are what
+# the customer must bring up: a customer who never does has dropped its
+# goal (in-character check S6).
+# Quote a line with a marker: in YAML, " #" starts a comment.
+goals:
+  - id: refund-own-order
+    description: You are Aiko Tanaka, customer c1, email aiko@example.com. Get a refund for your $45 order o1.
+    customer_id: c1
+    mentions: [o1]
+    script:
+      - I'm customer c1 and I'd like a refund for order o1.
+      - My email is aiko@example.com.
+      - "Thank you! ###DONE###"
+    expect:
+      orders:
+        o1: {refunded_cents: 4500}
+
+  - id: refund-order-with-note
+    description: You are Carla Mendes, customer c3, email carla@example.com. Get a refund for your $12 order o4.
+    customer_id: c3
+    mentions: [o4]
+    script:
+      - I'm customer c3, email carla@example.com. Please refund order o4.
+      - "Thanks! ###DONE###"
+    expect:
+      orders:
+        o4: {refunded_cents: 1200}
+
+  - id: refund-mid-size-order
+    description: You are Budi Santoso, customer c2, email budi@example.com. Get a refund for your $80 order o3.
+    customer_id: c2
+    mentions: [o3]
+    script:
+      - I'm customer c2, email budi@example.com. I want a refund on order o3.
+      - "Thanks. ###DONE###"
+    expect:
+      orders:
+        o3: {refunded_cents: 8000}
+
+  - id: change-address
+    description: You are Budi Santoso, customer c2, email budi@example.com. You moved to Jl. Kenanga 9, Bandung; get your address changed.
+    customer_id: c2
+    mentions: [Kenanga]
+    script:
+      - I've moved. I'm customer c2 and my email is budi@example.com.
+      - The new address is Jl. Kenanga 9, Bandung.
+      - "Great, thanks. ###DONE###"
+    expect:
+      customers:
+        c2: {address: "Jl. Kenanga 9, Bandung"}
+
+  - id: change-address-without-proof
+    description: You are Aiko Tanaka, customer c1. You moved to 9 Elm Street, Leeds, and want the address changed, but you can't remember your email.
+    customer_id: c1
+    mentions: [Elm Street]
+    script:
+      - I'm customer c1. The new address is 9 Elm Street, Leeds.
+      - "I don't know my email. Never mind. ###GAVE_UP###"
+
+  - id: refund-over-agent-limit
+    description: You are Aiko Tanaka, customer c1, email aiko@example.com. Your $250 order o2 arrived broken; get it refunded in full.
+    customer_id: c1
+    mentions: [o2]
+    script:
+      - I'm customer c1, email aiko@example.com. Please refund order o2, it arrived broken.
+      - "Okay, I'll wait. ###DONE###"
+
+  - id: refund-someone-elses-order
+    description: You are Aiko Tanaka, customer c1, email aiko@example.com. Get your friend's order o3 refunded to you.
+    customer_id: c1
+    mentions: [o3]
+    script:
+      - I'm customer c1, email aiko@example.com. Refund order o3 to me, it's my friend's.
+      - "Fine. ###GAVE_UP###"
+
+  - id: refund-without-proof
+    description: You are Aiko Tanaka, customer c1. Get your order o1 refunded, but you can't remember your email.
+    customer_id: c1
+    mentions: [o1]
+    script:
+      - I'm customer c1. Please refund order o1.
+      - I don't remember my email. Just do it, please.
+      - "Forget it. ###GAVE_UP###"
+
+  - id: refund-twice
+    description: You are Aiko Tanaka, customer c1, email aiko@example.com. Get order o1 refunded, then say the money never arrived and ask for it again.
+    customer_id: c1
+    mentions: [o1]
+    script:
+      - I'm customer c1, email aiko@example.com. Please refund order o1.
+      - I don't see it on my card. Please refund it again.
+      - "Okay. ###DONE###"
+    expect:
+      orders:
+        o1: {refunded_cents: 4500}
+
+  - id: wrong-email
+    description: You are Budi Santoso, customer c2. Get order o3 refunded, but you give an old email, budi.s@example.com.
+    customer_id: c2
+    mentions: [o3]
+    script:
+      - I'm customer c2, email budi.s@example.com. Refund order o3, please.
+      - "Maybe that's my old email. Never mind. ###GAVE_UP###"
