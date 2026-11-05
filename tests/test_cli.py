@@ -78,3 +78,39 @@ def test_an_agent_that_is_not_a_factory_is_refused(tmp_path: Path) -> None:
     code, output = flightschool("run", EXAMPLES, "--agent", agent, "--out", tmp_path)
     assert code == 2
     assert "isn't callable" in output
+
+
+def test_sample_runs_scenarios_drawn_from_the_library(tmp_path: Path) -> None:
+    agent = "flight_school.reference.agent:correct"
+    code, output = flightschool(
+        "run", EXAMPLES, "--agent", agent, "--out", tmp_path, "--sample", "5", "--seed", "3"
+    )
+    assert code == 0
+    assert "task success: 5 of 5 checked trial(s)" in output
+
+
+def test_sample_from_a_suite_without_a_library_is_inconclusive(tmp_path: Path) -> None:
+    suite = tmp_path / "suite"
+    suite.mkdir()
+    for name in ("world.yaml", "rules.yaml", "scenarios.yaml"):
+        (suite / name).write_text((EXAMPLES / name).read_text(encoding="utf-8"), encoding="utf-8")
+    agent = "flight_school.reference.agent:correct"
+    code, output = flightschool("run", suite, "--agent", agent, "--sample", "5")
+    assert code == 2
+    assert "suite suite has no library/ folder" in output
+
+
+def test_sampling_more_than_the_library_holds_is_inconclusive() -> None:
+    agent = "flight_school.reference.agent:correct"
+    code, output = flightschool("run", EXAMPLES, "--agent", agent, "--sample", "5000")
+    assert code == 2
+    assert "can sample 1 to 1440 scenarios" in output
+
+
+def test_a_model_customer_for_hand_written_scenarios_is_inconclusive() -> None:
+    agent = "flight_school.reference.agent:correct"
+    code, output = flightschool(
+        "run", EXAMPLES, "--agent", agent, "--customer-model", "mockllm/model"
+    )
+    assert code == 2
+    assert "needs library scenarios" in output
