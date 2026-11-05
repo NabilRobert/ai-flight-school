@@ -39,6 +39,8 @@ class RunPlan:
     # None: every customer says its scripted lines, at $0. Otherwise the
     # model that plays the customers, on the team's key.
     customer_model: str | Model | None = None
+    # Set when the agent is reached over HTTP (A2); recorded as the target.
+    agent_url: str | None = None
 
     @property
     def customer_name(self) -> str:

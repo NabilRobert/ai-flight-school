@@ -88,7 +88,11 @@ def build_meta(
         # Scripted runs cost nothing; slice 7 fills these for model runs.
         "budget": None,
         "price": None,
-        "target": {"name": plan.agent_name, "transport": "in-process", "address": None},
+        "target": {
+            "name": plan.agent_name,
+            "transport": "in-process" if plan.agent_url is None else "http",
+            "address": plan.agent_url,
+        },
         "agent": {
             "model": plan.agent_name,
             "model_args": {},
