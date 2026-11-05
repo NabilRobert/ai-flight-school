@@ -4,17 +4,24 @@
   against the agent, writes the records, and exits with the gate's code:
   0 pass, 1 blocked, 2 inconclusive. `--sample N --seed S` runs N
   scenarios drawn from the suite's seed library instead, and
-  `--customer-model` has a model play the customers.
+  `--customer-model` has a model play the customers. `--agent-url`
+  reaches an agent over HTTP instead, with its tools served over MCP.
+- `flightschool serve-reference` serves the reference agent over HTTP,
+  to try `--agent-url` against.
 - `flightschool accuracy` measures Flight School itself on the reference
   agent's seeded bugs, at $0.
 """
 
 import pkgutil
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
+from urllib.parse import urlsplit
 from pathlib import Path
-from typing import Annotated, cast
+from typing import Annotated, cast, get_args
 
 import typer
+import uvicorn
 from agent_eval.records import RecordError
 
 from flight_school.config_files import ConfigFileError
@@ -24,7 +31,12 @@ from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.scenario import Scenario
 from flight_school.conversation.run import run_plan
 from flight_school.gate import EXIT_INCONCLUSIVE, Verdict, judge
+from flight_school.http.adapter import http_agent
+from flight_school.http.serving import LOCALHOST
+from flight_school.http.tool_server import running_tool_server
 from flight_school.reference.accuracy import accuracy_from_records, render, run_every_variant
+from flight_school.reference.agent import Bug
+from flight_school.reference.http_agent import reference_app
 from flight_school.library.sampler import sample_scenarios
 from flight_school.suite import Suite, load_suite
 
@@ -52,6 +64,32 @@ def load_agent(spec: str) -> AgentFactory:
     if not callable(factory):
         raise AgentLoadError(f"{spec!r} isn't callable: it must be an agent factory.")
     return cast(AgentFactory, factory)
+
+
+def checked_agent_url(url: str) -> str:
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise AgentLoadError(f"--agent-url {url!r} isn't an http(s) URL.")
+    if parts.username or parts.password:
+        raise AgentLoadError(
+            "--agent-url has a user name or password in it, which would end up in the records:"
+            " put the key in FLIGHTSCHOOL_AGENT_KEY instead."
+        )
+    return url
+
+
+@contextmanager
+def reaching_agent(agent: str | None, agent_url: str | None) -> Iterator[AgentFactory]:
+    """The agent's factory; for --agent-url, with the MCP tool server
+    running until the block ends."""
+    if (agent is None) == (agent_url is None):
+        raise AgentLoadError("give exactly one of --agent (in process) or --agent-url (HTTP).")
+    if agent is not None:
+        yield load_agent(agent)
+        return
+    url = checked_agent_url(agent_url or "")
+    with running_tool_server() as tool_server:
+        yield http_agent(url, tool_server)
 
 
 def scenarios_to_run(suite: Suite, sample: int, seed: int) -> list[Scenario]:
@@ -90,7 +128,8 @@ def fail(message: str) -> typer.Exit:
 @app.command()
 def run(  # noqa: PLR0913 -- each parameter is one of the command's options
     suite: Annotated[Path, typer.Argument(help="folder with world, rules and scenarios")],
-    agent: Annotated[str, typer.Option(help="your agent factory, as module:attribute")],
+    agent: Annotated[str | None, typer.Option(help="your agent factory, module:attribute")] = None,
+    agent_url: Annotated[str | None, typer.Option(help="your agent's chat endpoint")] = None,
     out: Annotated[Path, typer.Option(help="records folder (replaced)")] = Path(
         "runs/flightschool"
     ),
@@ -106,22 +145,23 @@ def run(  # noqa: PLR0913 -- each parameter is one of the command's options
     """Run every scenario against the agent and gate on the result."""
     try:
         loaded = load_suite(suite)
-        factory = load_agent(agent)
         scenarios = scenarios_to_run(loaded, sample, seed)
-        plan = RunPlan(
-            loaded.world,
-            loaded.rules,
-            scenarios,
-            factory,
-            agent_name=agent,
-            suite_name=loaded.name,
-            turn_limit=turn_limit,
-            epochs=epochs,
-            customer_model=customer_model,
-        )
+        with reaching_agent(agent, agent_url) as factory:
+            plan = RunPlan(
+                loaded.world,
+                loaded.rules,
+                scenarios,
+                factory,
+                agent_name=agent or agent_url or "",
+                suite_name=loaded.name,
+                turn_limit=turn_limit,
+                epochs=epochs,
+                customer_model=customer_model,
+                agent_url=agent_url,
+            )
+            run_plan(plan, out)
     except (ConfigFileError, AgentLoadError, ValueError) as error:
         raise fail(str(error)) from error
-    run_plan(plan, out)
     try:
         verdict = judge(out, baseline)
     except RecordError as error:
@@ -149,3 +189,18 @@ def accuracy(
     if report is not None:
         report.write_text(text, encoding="utf-8")
     raise typer.Exit(0 if result.is_clean else 1)
+
+
+@app.command()
+def serve_reference(
+    variant: Annotated[str, typer.Option(help="correct, or a seeded bug's name")] = "correct",
+    port: Annotated[int, typer.Option()] = 8000,
+) -> None:
+    """Serve the reference agent's chat endpoint on this machine, at /chat."""
+    bugs: tuple[str, ...] = get_args(Bug)
+    bug = None if variant == "correct" else variant
+    if bug is not None and bug not in bugs:
+        raise fail(f"no variant {variant!r}; use correct or one of {', '.join(bugs)}.")
+    uvicorn.run(
+        reference_app(cast(Bug | None, bug)), host=LOCALHOST, port=port, log_level="warning"
+    )
