@@ -35,9 +35,14 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "agent-eval-harness" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "mcp" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "starlette" },
     { name = "typer" },
+    { name = "uvicorn" },
 ]
 
 [package.optional-dependencies]
@@ -51,13 +56,18 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "agent-eval-harness", git = "https://github.com/NabilRobert/agent-eval-harness?rev=199657b" },
+    { name = "fastapi", specifier = "==0.162.0" },
+    { name = "httpx", specifier = "==0.28.1" },
+    { name = "mcp", specifier = "==2.3.0" },
     { name = "pydantic", specifier = "==2.14.1" },
     { name = "pyright", marker = "extra == 'dev'", specifier = "==1.1.408" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.2" },
     { name = "pyyaml", specifier = "==6.0.3" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.2" },
+    { name = "starlette", specifier = "==1.10.0" },
     { name = "typer", specifier = "==0.27.3" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = "==6.0.12.20250915" },
+    { name = "uvicorn", specifier = "==0.54.0" },
 ]
 provides-extras = ["dev"]
 
