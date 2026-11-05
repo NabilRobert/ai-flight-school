@@ -6,7 +6,7 @@ from pathlib import Path
 
 from flight_school.conversation.agent import AgentTools, Message
 from flight_school.log import ToolCall
-from flight_school.reference.agent import MANAGER_CODE, Bug, ReferenceAgent
+from flight_school.reference.agent import MANAGER_CODE, Bug, ReferenceAgent, in_process
 from flight_school.world.schema import load_world
 from flight_school.world.shop import FakeShop
 
@@ -18,7 +18,7 @@ def talk(lines: list[str], bug: Bug | None = None) -> tuple[list[str], list[Tool
     """Say `lines` to a fresh agent; return its replies and the shop's calls."""
     shop = FakeShop(WORLD)
     tools = AgentTools(shop)
-    agent = ReferenceAgent(tools, bug)
+    agent = ReferenceAgent(in_process(tools), bug)
     chat: list[Message] = []
     replies: list[str] = []
     for line in lines:
