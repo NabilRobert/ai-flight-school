@@ -8,7 +8,7 @@ the customer's identity is checked, fails the build.
 
 ## Status
 
-**Resumed on 2026-11-05, after a pause after slice 3. Slices 1 to 4 of 8
+**Resumed on 2026-11-05, after a pause after slice 3. Slices 1 to 5 of 8
 are built, all at $0.**
 
 - **Works today:** the rule checker and the fake shop (slice 1); the
@@ -17,12 +17,15 @@ are built, all at $0.**
   `compare` reads (slice 2); the release gate, the `flightschool` command,
   the GitHub Action, and a reference agent with seven seeded bugs that the
   gate catches in every trial (slice 3); the seed library, the sampler,
-  the model-customer path and the in-character checks (slice 4).
+  the model-customer path and the in-character checks (slice 4); agents in
+  any language over HTTP, with the fake tools served over MCP (slice 5).
 - **Tested without a real model:** the model customer runs end to end on
   Inspect's `mockllm`. No real model has played a customer yet.
+- **Not done yet:** slice 5's timed setup test, where someone new adds
+  the gate to CI from this README in under 15 minutes (G7). It needs a
+  person; the steps are in the [slice plan](docs/planning/slice-plan.md).
 - **Planned next:** a thesis pilot with simulated Indonesian sales
-  customers on local models; the agent over HTTP and the fake tools as an
-  MCP server (slice 5); a run against a real agent (slice 6); a paid
+  customers on local models; a run against a real agent (slice 6); a paid
   accuracy run with model customers (slice 7, needs a budget not yet
   funded); the write-up (slice 8). The plan is in
   [docs/planning/](docs/planning/slice-plan.md).
@@ -54,6 +57,12 @@ Try it with the commands in [Run it](#run-it).
   checks it stayed in character (it didn't call itself an AI, quote its
   instructions, or drop its goal); a run where it broke character is
   inconclusive.
+- **Agents in any language** (`--agent-url`): Flight School posts each
+  turn to the agent's chat endpoint (`flight_school/http/contract.py`),
+  and the agent calls its tools on an MCP server Flight School runs on
+  `127.0.0.1`, one private URL per conversation. The reference agent gets
+  the same verdict both ways. A key for the endpoint goes in
+  `FLIGHTSCHOOL_AGENT_KEY`; it is sent, never written.
 - **The conversation loop**, on [Inspect AI](https://inspect.aisi.org.uk/):
   customer and agent take turns until the customer ends it with
   `###DONE###` or `###GAVE_UP###`. Running out of turns or time is never a
@@ -87,6 +96,17 @@ Draw 50 scenarios from the seed library instead (still scripted, $0):
 uv run flightschool run examples/shop --agent flight_school.reference.agent:correct --sample 50 --seed 1
 ```
 
+Gate an agent over HTTP, here the reference agent served locally:
+
+```bash
+uv run flightschool serve-reference --variant correct --port 8000 &
+uv run flightschool run examples/shop --agent-url http://127.0.0.1:8000/chat
+```
+
+Your agent answers `POST` requests shaped like
+`flight_school/http/contract.py: ChatRequest` with `{"reply": "..."}`, and
+calls its tools over MCP on the request's `tools_url`.
+
 Adding `--customer-model openai/gpt-5-mini` (any Inspect model) has a
 model play the customers; that calls the provider on your key.
 
@@ -98,6 +118,10 @@ In GitHub Actions:
     suite: examples/shop
     agent: my_support_bot.flight_school:agent
 ```
+
+For an agent over HTTP, start it in an earlier step of the job and give
+`agent-url` instead of `agent`, as the `gate` job in
+`.github/workflows/ci.yml` does.
 
 Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key unless you use
 `--customer-model`; the first
@@ -114,8 +138,9 @@ Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key unless you use
 | `flight_school/gate.py` | The release gate: one exit code from a run's records |
 | `flight_school/cli.py` | The `flightschool` command: `run` and `accuracy` |
 | `flight_school/suite.py` | Loading a suite folder (world, rules, scenarios) |
+| `flight_school/http/` | Adapter A2: the chat contract, the HTTP adapter, the MCP tool server, and the local server helper |
 | `flight_school/library/` | The seed library's entries (`schema.py`), and crossing and sampling them into scenarios (`sampler.py`) |
-| `flight_school/reference/` | The reference agent, its seeded bugs, and the accuracy report |
+| `flight_school/reference/` | The reference agent, its seeded bugs, the accuracy report, and the agent served over HTTP (`http_agent.py`) |
 | `action.yml` | The GitHub Action |
 | `flight_school/config_files.py` | Loading YAML files, with errors that say what to fix |
 | `examples/shop/` | The example world, rules and scenarios; `library/` holds its seed library |

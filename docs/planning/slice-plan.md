@@ -79,6 +79,19 @@ decides pass or fail, so it is built and proven first.
 **Branch:** `feat/rule-checker`, from `main`, once `docs/planning` is
 merged.
 
+## Slice 5: the setup test left for Arthur
+
+Slice 5 is built except its third done-when, the timed setup by someone
+new (G7). It needs a person, so it is a step for Arthur, not a blocker:
+
+1. Find a developer who hasn't seen Flight School (P6).
+2. Give them the repository's README and a small agent of their own (or
+   the reference agent served with `flightschool serve-reference`).
+3. Time them from cloning to a CI job that runs the gate, through the
+   Action, and turns red on a seeded bug.
+4. Pass: under 15 minutes. Write the time and everything they got stuck
+   on here, and fix the README where they stumbled.
+
 ## Cost model
 
 Full reasoning in [ADR-014](phase-5-architecture-decisions.md#adr-014-costs-the-teams-key-0-for-arthur-in-development).

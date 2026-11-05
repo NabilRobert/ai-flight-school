@@ -1,10 +1,10 @@
 # Guide
 
 How AI Flight School decides pass or fail, for someone reading the code
-for the first time. This covers slices 1 to 4: the fake shop, the rule
+for the first time. This covers slices 1 to 5: the fake shop, the rule
 checker, the conversation loop, the release gate, the reference agent
-that measures them, and the seed library that scenarios and model
-customers come from.
+that measures them, the seed library that scenarios and model customers
+come from, and reaching an agent over HTTP with its tools over MCP.
 
 ## The flow: the gate in a team's CI
 
@@ -141,6 +141,55 @@ flowchart TD
    that model, and the loop uses `customer.py: model_customer`. Without
    it, every customer is scripted and the run costs $0.
 
+## The flow: an agent over HTTP
+
+`flightschool run examples/shop --agent-url http://127.0.0.1:8000/chat`
+runs the same loop, scorer and gate as an in-process agent. Only the way
+the agent is reached changes.
+
+```mermaid
+sequenceDiagram
+    participant L as loop (take_turns)
+    participant H as http_agent reply
+    participant A as team's agent
+    participant M as ToolServer (MCP)
+    participant S as FakeShop
+    L->>H: chat so far
+    H->>A: POST ChatRequest (conversation_id, messages, tools_url)
+    A->>M: tools/call on tools_url
+    M->>S: AgentTools.call (this conversation's shop)
+    S-->>M: result, recorded by the shop
+    M-->>A: CallToolResult
+    A-->>H: ChatResponse {reply}
+    H-->>L: reply text
+```
+
+1. **Start the tool server.** `cli.py: reaching_agent` checks the URL
+   (`checked_agent_url`: http or https, no password in it) and starts
+   `http/tool_server.py: running_tool_server` on a free port of
+   127.0.0.1, in its own thread (`http/serving.py: serve_in_thread`).
+2. **One URL per conversation.** `http/adapter.py: http_agent` is an
+   ordinary agent factory. For each conversation it registers that
+   conversation's `AgentTools` with `ToolServer.register`, which returns
+   `.../mcp?conversation=<random token>`.
+3. **Each turn is one POST.** `post_turn` sends the `ChatRequest`
+   (`http/contract.py`) to the agent's URL, with
+   `Authorization: Bearer $FLIGHTSCHOOL_AGENT_KEY` when that is set. A
+   non-2xx status, a redirect, or a body that isn't a `ChatResponse`
+   raises, so the trial is an error and the run inconclusive.
+4. **Tools over MCP.** The agent calls `tools/call` on `tools_url`.
+   `ToolServer.call` finds the conversation by its token and runs the
+   call through the same `AgentTools` an in-process agent uses, so the
+   shop records it, with the turn, exactly as before. A refused call
+   comes back as an MCP error with the shop's reason.
+5. **The rest is unchanged:** scoring, records (the target is recorded
+   as `transport: http` with the URL) and the gate.
+
+The reference agent behind this contract is
+`reference/http_agent.py: reference_app`: the same `ReferenceAgent`, with
+an MCP client (`over_mcp`) as its way to call tools.
+`tests/test_http.py` checks every variant gets the same verdict both ways.
+
 ## The flow: checking one conversation
 
 A conversation's record goes in; a list of rule breaks comes out. The
@@ -220,6 +269,12 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | Term | Meaning | In the code |
 |---|---|---|
 | **Agent under test** | The team's support chatbot that the gate is testing | `conversation/agent.py: AgentFactory` |
+| **HTTP adapter (A2)** | How an agent in any language plugs in: Flight School posts each turn to its chat endpoint, and it calls its tools over MCP | `http/adapter.py: http_agent` |
+| **Chat contract** | The JSON of one turn: `ChatRequest` in, `ChatResponse` out | `http/contract.py` |
+| **MCP** | Model Context Protocol: a standard way for an agent to list and call tools on a server. Flight School serves the fake shop's tools with the official MCP SDK | `http/tool_server.py` |
+| **Tool server** | The MCP server for one run, on 127.0.0.1. Each conversation gets its own URL and reaches only its own shop | `http/tool_server.py: ToolServer` |
+| **`tools_url`** | The conversation's private MCP URL, sent with every turn | `ToolServer.register` |
+| **Agent key** | `FLIGHTSCHOOL_AGENT_KEY`: sent to the agent as a bearer token, never written to records or output | `http/adapter.py: auth_headers` |
 | **In-process adapter** | How a Python agent plugs in: a factory takes the shop's tools and returns a `reply` function for one conversation | `conversation/agent.py` |
 | **Scenario** | One conversation to run: who the customer is, their lines, and the changes the shop's data should show afterwards | `conversation/scenario.py: Scenario` |
 | **Stop marker** | `###DONE###` or `###GAVE_UP###`: how the customer ends a conversation. Only the customer's count | `scenario.py: STOP_MARKERS` |
@@ -287,8 +342,20 @@ The six rule kinds:
   "manager ... approved"). A model-backed agent would read them all.
 - An in-process agent is Python running in the same process, so it is
   trusted code: the copies in `AgentTools` stop accidents, not an agent
-  written to cheat. Slice 5's HTTP adapter, not built, would keep the
-  agent outside.
+  written to cheat. Over HTTP the agent runs outside, and only reaches
+  the shop through its own conversation's MCP URL.
+- The tool server listens on 127.0.0.1 only, so the agent must run on the
+  same machine (in CI, started earlier in the same job). An agent in a
+  separate container can't reach it yet.
+- The MCP tools have names and argument schemas but no descriptions; a
+  model-backed agent sees `issue_refund(order_id, amount_cents)` and
+  nothing more.
+- The agent's URL is written to the records. A user name or password in
+  it is refused, but a key in its query string can't be told from any
+  other parameter: put keys in `FLIGHTSCHOOL_AGENT_KEY`.
+- A tool call an agent makes after its reply has been cut off by the
+  time limit reaches a shop that has already been scored, so it changes
+  nothing and isn't recorded.
 - Each trial stores the whole world twice (expected and actual), which is
   fine for a small fake shop and would need a diff for a large one.
 - Scripted runs record their cost as unknown, not $0: the harness prices
@@ -332,9 +399,16 @@ The six rule kinds:
 - **Plug in an agent:** write a factory that takes `AgentTools` and returns
   an async `reply(chat)`, as in `flight_school/reference/agent.py`, then
   run `flightschool run SUITE --agent your_module:your_factory`.
+- **Plug in an agent over HTTP:** answer the `ChatRequest` in
+  `http/contract.py`, call tools on its `tools_url` with any MCP client,
+  then run `flightschool run SUITE --agent-url http://127.0.0.1:PORT/chat`.
+  `reference/http_agent.py` is a working example in Python.
+- **Change the chat contract or the tool server:** `http/contract.py` and
+  `http/tool_server.py`; the reply timeout and the key's variable are in
+  `http/adapter.py`.
 - **Gate in CI:** use the Action, as the `gate` job in
-  `.github/workflows/ci.yml` does, with `suite`, `agent` and, once you
-  keep one, `baseline`.
+  `.github/workflows/ci.yml` does, with `suite`, `agent` (or `agent-url`)
+  and, once you keep one, `baseline`.
 - **Change what blocks:** `gate.py: exit_code_of`. A rule's `severity`
   decides whether its violations count as critical.
 - **Add a seeded bug:** a name in `reference/agent.py: Bug`, the guard it

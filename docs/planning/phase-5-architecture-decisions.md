@@ -198,6 +198,20 @@ most agents without touching their code beyond config.
 agent's model calls, but the agent's own code still runs the tools, so the
 fakes can't be guaranteed. Kept as a later option.
 
+**Built (slice 5), with these choices:**
+- **MCP server:** the official MCP SDK's low-level `Server`, in stateless
+  JSON mode, with one private URL per conversation
+  (`?conversation=<token>`). The SDK's high-level `MCPServer` registers
+  tools from Python functions; the shop's tools already have Pydantic
+  argument models, so the low-level server lists them directly.
+- **HTTP client:** httpx (the stack's choice), redirects not followed (X4).
+- **Serving:** uvicorn in a background thread, since Inspect owns the main
+  event loop. The reference agent's endpoint is FastAPI (the stack's HTTP
+  framework); Starlette alone was enough, but FastAPI validates the
+  `ChatRequest` with the same Pydantic models the contract defines.
+- All four were already installed through Inspect; they are now pinned
+  at those versions.
+
 ## ADR-010: A small fixed set of rule kinds, in YAML
 
 **Decision:** the six rule kinds in Phase 2 (R2), validated by Pydantic,
