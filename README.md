@@ -6,17 +6,33 @@ tools are fakes held by the gate; **code**, not a model, checks every tool
 call against your rules. A refund over the order total, or one made before
 the customer's identity is checked, fails the build.
 
-**Status: slice 3 of 8.** Done so far:
-- the rule checker and the fake shop (slice 1);
-- the conversation loop, with a scripted customer and records the
-  [agent-eval-harness](https://github.com/NabilRobert/agent-eval-harness)'s
-  `compare` reads (slice 2);
-- the release gate, the `flightschool` command, a GitHub Action, and a
-  reference agent with seven seeded bugs that the gate catches every time
-  (slice 3).
+## Status
 
-There are no model customers yet. The plan is on the `docs/planning`
-branch.
+**Paused on 2026-11-05, after slice 3 of 8.** What exists is finished and
+tested; nothing is half-built.
+
+- **Works today, at $0 with no model:** the rule checker and the fake shop
+  (slice 1); the conversation loop, with scripted customers and records
+  the [agent-eval-harness](https://github.com/NabilRobert/agent-eval-harness)'s
+  `compare` reads (slice 2); the release gate, the `flightschool` command,
+  the GitHub Action, and a reference agent with seven seeded bugs that the
+  gate catches in every trial, with no false alarm on the correct agent
+  (slice 3).
+- **Planned next, not built:** model customers drawn from a seed library of
+  personas and tactics (slice 4); a thesis pilot with simulated Indonesian
+  sales customers on local models; the agent over HTTP and the fake tools
+  as an MCP server (slice 5); a run against a real agent (slice 6); a paid
+  accuracy run with model customers (slice 7); the write-up (slice 8). The
+  plan is in [docs/planning/](docs/planning/slice-plan.md).
+- **Why it stopped:** the other portfolio projects are being finished
+  first. Every remaining slice needs model customers, which means local
+  model downloads or paid model calls, and the project's model budget isn't
+  funded yet.
+- **What that leaves out:** a simulated customer that reacts to the agent.
+  Today's customers say fixed lines, so the accuracy report measures the
+  checker and the gate, not how well a customer finds bugs.
+
+Try it with the commands in [Run it](#run-it).
 
 ## What works now
 
