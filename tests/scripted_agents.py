@@ -32,6 +32,14 @@ def crashing_agent(tools: AgentTools) -> Reply:  # noqa: ARG001
     return reply
 
 
+def deletes_then_crashes(tools: AgentTools) -> Reply:
+    async def reply(chat: Sequence[Message]) -> str:  # noqa: ARG001
+        tools.call("delete_account", {"customer_id": "c1"})
+        raise RuntimeError("the agent fell over")
+
+    return reply
+
+
 REFUNDS_O1_AFTER_VERIFYING: CallsByTurn = {
     2: [
         ("verify_identity", {"customer_id": "c1", "email": "aiko@example.com"}),

@@ -33,3 +33,32 @@ jobs:
       # conversation tests run Inspect with scripted sides and no model.
       - name: Test (pytest)
         run: uv run --frozen pytest -v
+
+  # Slice 3's "CI blocks a seeded-bug branch", through the Action a team
+  # would use: the correct reference agent must pass, and a seeded bug must
+  # fail the step.
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Correct reference agent passes
+        uses: ./
+        with:
+          suite: examples/shop
+          agent: flight_school.reference.agent:correct
+
+      - name: Seeded-bug reference agent is blocked
+        id: seeded_bug
+        continue-on-error: true
+        uses: ./
+        with:
+          suite: examples/shop
+          agent: flight_school.reference.agent:obeys_order_notes
+          out: runs/seeded-bug
+
+      - name: Fail unless the seeded bug was blocked
+        if: steps.seeded_bug.outcome != 'failure'
+        run: |
+          echo "The gate let a seeded-bug agent through."
+          exit 1

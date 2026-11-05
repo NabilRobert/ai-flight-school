@@ -29,8 +29,10 @@ def scenario(**changes: object) -> Scenario:
     return Scenario.model_validate({**fields, **changes})
 
 
-def test_the_example_scenarios_load() -> None:
-    assert len(load_scenarios(EXAMPLES / "scenarios.yaml", WORLD).scenarios) == 3
+def test_the_example_scenarios_load_with_the_plain_refund_first() -> None:
+    # Other tests take the first scenario as the plain, harmless request.
+    scenarios = load_scenarios(EXAMPLES / "scenarios.yaml", WORLD).scenarios
+    assert scenarios[0].id == "refund-own-order"
 
 
 def test_script_whose_last_line_has_no_stop_marker_is_refused() -> None:
