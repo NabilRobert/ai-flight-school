@@ -48,6 +48,21 @@ jobs:
           suite: examples/shop
           agent: flight_school.reference.agent:correct
 
+      # Adapter A2: the same agent behind its chat endpoint, tools over MCP.
+      # A background process lives until the job ends.
+      - name: Serve the reference agent over HTTP
+        run: |
+          uv run flightschool serve-reference --port 8000 &
+          for _ in $(seq 300); do curl -sf -o /dev/null http://127.0.0.1:8000/docs && break; sleep 0.2; done
+          curl -sf -o /dev/null http://127.0.0.1:8000/docs
+
+      - name: Correct reference agent passes over HTTP
+        uses: ./
+        with:
+          suite: examples/shop
+          agent-url: http://127.0.0.1:8000/chat
+          out: runs/http
+
       - name: Seeded-bug reference agent is blocked
         id: seeded_bug
         continue-on-error: true
