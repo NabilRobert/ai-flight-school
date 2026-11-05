@@ -2,6 +2,8 @@
 agent take turns until the customer says a stop marker or the turn limit
 is reached (ADR-007, following τ²-bench's user-simulator loop).
 
+The customer is scripted or a model (`customer.py`); either way, its
+lines are recorded and checked for breaking character (`character.py`).
 The loop owns the shop: the agent only sees `AgentTools`, and every call
 it makes is recorded by the shop, never reported by the agent. Errors are
 never caught here: an agent or customer that raises makes the trial an
@@ -17,6 +19,8 @@ from inspect_ai.util import LimitExceededError, StoreModel
 from pydantic import Field
 
 from flight_school.conversation.agent import AgentFactory, AgentTools, Message
+from flight_school.conversation.character import character_breaks
+from flight_school.conversation.customer import Customer, model_customer, scripted_customer
 from flight_school.conversation.scenario import Row, Scenario, stop_marker_in, world_rows
 from flight_school.log import AgentReply, ConversationLog, ToolCall
 from flight_school.world.schema import World
@@ -35,6 +39,8 @@ class ConversationRecord(StoreModel):
     customer_id: str = ""
     tool_calls: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
     replies: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
+    customer_lines: list[str] = Field(default_factory=list[str])
+    character_breaks: list[str] = Field(default_factory=list[str])
     stop_marker: str | None = None
     final_rows: list[Row] = Field(default_factory=list[Row])
 
@@ -52,21 +58,26 @@ def scenario_of(state: TaskState) -> Scenario:
 
 @solver
 def conversation(
-    agent_factory: AgentFactory, world: World, turn_limit: int = DEFAULT_TURN_LIMIT
+    agent_factory: AgentFactory,
+    world: World,
+    turn_limit: int = DEFAULT_TURN_LIMIT,
+    has_model_customer: bool = False,
 ) -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:  # noqa: ARG001
         scenario = scenario_of(state)
+        customer = model_customer(scenario) if has_model_customer else scripted_customer(scenario)
         shop = FakeShop(world)
         record = state.store_as(ConversationRecord)
         record.customer_id = scenario.customer_id
         # The sample's input is only a label; the loop builds the chat.
         state.messages = []
         try:
-            await take_turns(state, scenario, shop, agent_factory, turn_limit)
+            await take_turns(state, customer, shop, agent_factory, turn_limit)
         finally:
             # Also on the turn limit, so the scorer sees the calls made.
             record.tool_calls = [asdict(call) for call in shop.calls]
             record.final_rows = world_rows(shop.world)
+            record.character_breaks = character_breaks(scenario, record.customer_lines)
         return state
 
     return solve
@@ -74,7 +85,7 @@ def conversation(
 
 async def take_turns(
     state: TaskState,
-    scenario: Scenario,
+    customer: Customer,
     shop: FakeShop,
     agent_factory: AgentFactory,
     turn_limit: int,
@@ -83,7 +94,9 @@ async def take_turns(
     reply = agent_factory(tools)
     record = state.store_as(ConversationRecord)
     chat: list[Message] = []
-    for line in scenario.script:
+    while True:
+        line = await customer(chat)
+        record.customer_lines = [*record.customer_lines, line]
         # Only the customer can end the conversation: an agent that types
         # a stop marker is just saying words (ADR-015, X5).
         marker = stop_marker_in(line)
@@ -99,8 +112,7 @@ async def take_turns(
         chat.append(Message("agent", text))
         state.messages.append(ChatMessageAssistant(content=text))
         record.replies = [*record.replies, asdict(AgentReply(tools.turn, text))]
-    # Reached on the turn limit, and on a script that ran out without a
-    # marker: either way the conversation never ended, so it can't pass.
+    # The customer hadn't ended the conversation, so it can't pass.
     # Inspect records the limit and still scores the sample; the harness
     # then counts it as a fail (its `stop_reason` rule).
     raise LimitExceededError(

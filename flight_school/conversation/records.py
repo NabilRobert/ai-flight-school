@@ -4,8 +4,8 @@
 Each trial is built by the harness's own `trial_from_sample`, so the
 pass/fail/error rules and the limit rule are the harness's, not a copy.
 Flight School adds three fields the harness ignores: the shop's record of
-tool calls, the rule violations (for every trial, errored ones too), and
-the stop marker.
+tool calls, the rule violations (for every trial, errored ones too), the
+stop marker, and where the simulated customer broke character.
 """
 
 import importlib.metadata
@@ -28,11 +28,13 @@ from flight_school.world.schema import World
 from flight_school.world.shop import SHOP_TOOLS
 
 
-def data_fingerprint(world: World, rules: RuleSet) -> str:
-    """The world and the rules a run was checked against. The harness's
-    `compare` refuses two runs whose fingerprints differ. Hashed from the
-    parsed files, so a comment edit doesn't make runs incomparable."""
-    return sha256_hex(stable_json({"world": world.model_dump(), "rules": rules.model_dump()}))
+def data_fingerprint(world: World, rules: RuleSet, customer: str) -> str:
+    """The world, the rules and the customer a run was checked against.
+    The harness's `compare` refuses two runs whose fingerprints differ, so
+    a model-customer run is never compared with a scripted one. Hashed from
+    the parsed files, so a comment edit doesn't make runs incomparable."""
+    data = {"world": world.model_dump(), "rules": rules.model_dump(), "customer": customer}
+    return sha256_hex(stable_json(data))
 
 
 def harness_commit() -> str | None:
@@ -64,6 +66,7 @@ def trial_with_conversation(
         violations = check(record.to_log(), plan.rules, plan.world)
         trial["violations"] = [asdict(violation) for violation in violations]
     trial["stop_marker"] = record.stop_marker
+    trial["character_breaks"] = record.character_breaks
     return trial
 
 
@@ -96,7 +99,7 @@ def build_meta(
             "epochs": plan.epochs,
         },
         "provenance": {
-            "data_fingerprint": data_fingerprint(plan.world, plan.rules),
+            "data_fingerprint": data_fingerprint(plan.world, plan.rules, plan.customer_name),
             "models_reported": [],
             "harness_git": harness_commit(),
             "inspect_ai_version": importlib.metadata.version("inspect-ai"),

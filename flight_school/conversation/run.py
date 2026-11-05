@@ -1,8 +1,9 @@
 """Running a plan: one Inspect sample per scenario, the loop as solver,
 the checker as scorer, then the records in the harness's format.
 
-No model is called: the customer is scripted and the agent runs in
-process, so Inspect runs with its `none` model and the run costs $0.
+The agent runs in process, so Inspect's own model is `none`. A scripted
+customer calls no model and the run costs $0; a model customer is
+Inspect's `user` role.
 """
 
 from pathlib import Path
@@ -31,7 +32,12 @@ def build_task(plan: RunPlan) -> Task:
     ]
     return Task(
         dataset=dataset,
-        solver=conversation(plan.agent_factory, plan.world, plan.turn_limit),
+        solver=conversation(
+            plan.agent_factory,
+            plan.world,
+            plan.turn_limit,
+            has_model_customer=plan.customer_model is not None,
+        ),
         scorer=conversation_scorer(plan.world, plan.rules),
         time_limit=plan.time_limit_seconds,
     )
@@ -42,6 +48,7 @@ def run_plan(plan: RunPlan, run_dir: Path) -> None:
     [log] = inspect_eval(
         build_task(plan),
         model="none",
+        model_roles=None if plan.customer_model is None else {"user": plan.customer_model},
         epochs=plan.epochs,
         log_dir=str(run_dir / INSPECT_LOG_FOLDER),
         display="none",

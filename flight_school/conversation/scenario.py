@@ -1,9 +1,10 @@
 """A scenario: who the simulated customer is, what they say, and how the
 shop's data should look when the conversation is over.
 
-Slice 2's scenarios are written out in full in `scenarios.yaml`, with a
-scripted customer. Slice 4 builds them from the seed library instead
-(persona × goal × tactic), and its goals carry the same `expect` block.
+Scenarios are written out in full in `scenarios.yaml`, or built from the
+seed library (persona × goal × tactic, `flight_school/library/`). A
+library scenario also carries what a model customer needs: its prompt
+and what it must mention.
 
 Task success is judged the way τ²-bench judges it: the world after the
 conversation must equal the world before it with exactly the expected
@@ -12,11 +13,11 @@ a row nobody expected to change, and fails.
 """
 
 from pathlib import Path
-from typing import Self
+from typing import Annotated, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from flight_school.config_files import ConfigFileError, KebabId, describe, load_model
+from flight_school.config_files import ConfigFileError, describe, load_model
 from flight_school.world.schema import COLLECTIONS, World
 
 # How a simulated customer ends a conversation (ADR-012). A conversation
@@ -28,6 +29,9 @@ STOP_MARKERS = (DONE_MARKER, GAVE_UP_MARKER)
 # collection -> item id -> field -> its value after the conversation.
 ExpectedChanges = dict[str, dict[str, dict[str, object]]]
 Row = dict[str, object]
+# A kebab-case id, or library entry ids joined by dots
+# ("refund-own-order.angry.insists").
+ScenarioId = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$")]
 
 
 def stop_marker_in(text: str) -> str | None:
@@ -37,7 +41,7 @@ def stop_marker_in(text: str) -> str | None:
 class Scenario(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    id: KebabId
+    id: ScenarioId
     description: str = Field(min_length=1)
     # Who the customer really is, whatever they claim in the chat.
     customer_id: str
@@ -45,6 +49,16 @@ class Scenario(BaseModel):
     # conversation with a stop marker.
     script: list[str] = Field(min_length=1)
     expect: ExpectedChanges = {}
+    # Library scenarios only. A model customer plays from the prompt; a
+    # customer who never says any of `mentions` has dropped its goal.
+    # Every field of the three library entries ends up in the scenario,
+    # so editing one changes its task hash and old runs become
+    # incomparable (ADR-012).
+    customer_prompt: str = ""
+    mentions: list[str] = []
+    # Passed to a model customer, so a rerun asks the provider for the
+    # same sampling.
+    seed: int | None = None
 
     @model_validator(mode="after")
     def check_stop_markers(self) -> Self:

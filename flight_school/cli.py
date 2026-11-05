@@ -2,7 +2,9 @@
 
 - `flightschool run SUITE --agent module:factory` runs every scenario
   against the agent, writes the records, and exits with the gate's code:
-  0 pass, 1 blocked, 2 inconclusive.
+  0 pass, 1 blocked, 2 inconclusive. `--sample N --seed S` runs N
+  scenarios drawn from the suite's seed library instead, and
+  `--customer-model` has a model play the customers.
 - `flightschool accuracy` measures Flight School itself on the reference
   agent's seeded bugs, at $0.
 """
@@ -19,10 +21,12 @@ from flight_school.config_files import ConfigFileError
 from flight_school.conversation.agent import AgentFactory
 from flight_school.conversation.loop import DEFAULT_TURN_LIMIT
 from flight_school.conversation.plan import RunPlan
+from flight_school.conversation.scenario import Scenario
 from flight_school.conversation.run import run_plan
 from flight_school.gate import EXIT_INCONCLUSIVE, Verdict, judge
 from flight_school.reference.accuracy import accuracy_from_records, render, run_every_variant
-from flight_school.suite import load_suite
+from flight_school.library.sampler import sample_scenarios
+from flight_school.suite import Suite, load_suite
 
 app = typer.Typer(no_args_is_help=True, help="Simulated customers against your support agent.")
 
@@ -50,6 +54,18 @@ def load_agent(spec: str) -> AgentFactory:
     return cast(AgentFactory, factory)
 
 
+def scenarios_to_run(suite: Suite, sample: int, seed: int) -> list[Scenario]:
+    """The hand-written scenarios, or `sample` drawn from the library."""
+    if sample == 0:
+        return suite.scenarios
+    if suite.library is None:
+        raise ConfigFileError(f"suite {suite.name} has no library/ folder to sample from.")
+    try:
+        return sample_scenarios(suite.library, sample, seed)
+    except ValueError as error:
+        raise ConfigFileError(f"--sample: {error}.") from error
+
+
 def print_verdict(verdict: Verdict, run_dir: Path) -> None:
     print(f"verdict: {VERDICT_NAMES[verdict.exit_code]} (exit {verdict.exit_code})")
     for reason in verdict.reasons:
@@ -61,6 +77,8 @@ def print_verdict(verdict: Verdict, run_dir: Path) -> None:
         )
     for trial in verdict.unchecked:
         print(f"  unchecked: {trial}")
+    for broken in verdict.broken_customers:
+        print(f"  customer broke character: {broken}")
     print(f"records: {run_dir}")
 
 
@@ -79,23 +97,30 @@ def run(  # noqa: PLR0913 -- each parameter is one of the command's options
     baseline: Annotated[Path | None, typer.Option(help="a baseline run to compare with")] = None,
     epochs: Annotated[int, typer.Option(min=1, help="runs of each scenario")] = 1,
     turn_limit: Annotated[int, typer.Option(min=1)] = DEFAULT_TURN_LIMIT,
+    sample: Annotated[int, typer.Option(min=0, help="draw this many from the library")] = 0,
+    seed: Annotated[int, typer.Option(help="which scenarios --sample draws")] = 0,
+    customer_model: Annotated[
+        str | None, typer.Option(help="Inspect model for the customers; costs on your key")
+    ] = None,
 ) -> None:
     """Run every scenario against the agent and gate on the result."""
     try:
         loaded = load_suite(suite)
         factory = load_agent(agent)
-    except (ConfigFileError, AgentLoadError) as error:
+        scenarios = scenarios_to_run(loaded, sample, seed)
+        plan = RunPlan(
+            loaded.world,
+            loaded.rules,
+            scenarios,
+            factory,
+            agent_name=agent,
+            suite_name=loaded.name,
+            turn_limit=turn_limit,
+            epochs=epochs,
+            customer_model=customer_model,
+        )
+    except (ConfigFileError, AgentLoadError, ValueError) as error:
         raise fail(str(error)) from error
-    plan = RunPlan(
-        loaded.world,
-        loaded.rules,
-        loaded.scenarios,
-        factory,
-        agent_name=agent,
-        suite_name=loaded.name,
-        turn_limit=turn_limit,
-        epochs=epochs,
-    )
     run_plan(plan, out)
     try:
         verdict = judge(out, baseline)

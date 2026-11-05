@@ -8,6 +8,8 @@ customer who doesn't exist) never starts.
 
 from dataclasses import dataclass
 
+from inspect_ai.model import Model
+
 from flight_school.conversation.agent import AgentFactory
 from flight_school.conversation.loop import DEFAULT_TURN_LIMIT
 from flight_school.conversation.scenario import Scenario, ScenarioSet, expected_world
@@ -34,6 +36,13 @@ class RunPlan:
     time_limit_seconds: int = DEFAULT_TIME_LIMIT_SECONDS
     # Inspect's word for repeats: each scenario runs this many times.
     epochs: int = 1
+    # None: every customer says its scripted lines, at $0. Otherwise the
+    # model that plays the customers, on the team's key.
+    customer_model: str | Model | None = None
+
+    @property
+    def customer_name(self) -> str:
+        return "scripted" if self.customer_model is None else str(self.customer_model)
 
     def __post_init__(self) -> None:
         for name in ("turn_limit", "time_limit_seconds", "epochs"):
@@ -43,3 +52,8 @@ class RunPlan:
         ScenarioSet(scenarios=self.scenarios)
         for scenario in self.scenarios:
             expected_world(self.world, scenario)
+            if self.customer_model is not None and not scenario.customer_prompt:
+                raise ValueError(
+                    f"scenario {scenario.id} has no customer prompt: a model customer"
+                    " needs library scenarios (flightschool run --sample)"
+                )

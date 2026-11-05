@@ -3,14 +3,16 @@
 - **Absolute:** any critical violation in any trial blocks (exit 1). The
   harness's gate is relative only, so this part is Flight School's.
 - **Unchecked:** a trial that errored was never checked, so the run says
-  nothing reliable (exit 2), unless a violation already blocked it.
+  nothing reliable (exit 2), unless a violation already blocked it. A
+  trial where the simulated customer broke character (`character.py`)
+  is inconclusive the same way: the test didn't happen as written.
 - **Relative:** with a baseline run, task success goes through the
   harness's own `compare` (pooled z-test), and its exit code stands.
 
 The exit codes are the harness's: 0 pass, 1 blocked, 2 inconclusive.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +43,8 @@ class Verdict:
     # (trials that reached the expected world, trials checked)
     task_success: tuple[int, int]
     comparison: Comparison | None
+    # "task#attempt: what the customer did", one per break.
+    broken_customers: list[str] = field(default_factory=list[str])
 
     @property
     def critical(self) -> list[Finding]:
@@ -74,6 +78,14 @@ def unchecked_trials(run: Run) -> list[str]:
     ]
 
 
+def broken_customers(run: Run) -> list[str]:
+    broken: list[str] = []
+    for trial in run.trials:
+        breaks: list[str] = trial.get("character_breaks") or []
+        broken.extend(f"{trial['task_id']}#{trial['attempt']}: {each}" for each in breaks)
+    return broken
+
+
 def task_success(run: Run) -> tuple[int, int]:
     checked = [trial for trial in run.trials if trial["outcome"] != "error"]
     return sum(1 for trial in checked if trial["strict"]), len(checked)
@@ -83,7 +95,13 @@ def judge(run_dir: Path, baseline_dir: Path | None = None) -> Verdict:
     """Raises the harness's RecordError if `run_dir` holds no valid run."""
     run = load_run(run_dir)
     comparison = compare_runs(baseline_dir, run_dir) if baseline_dir is not None else None
-    parts = (findings_in(run), unchecked_trials(run), task_success(run), comparison)
+    parts = (
+        findings_in(run),
+        unchecked_trials(run),
+        task_success(run),
+        comparison,
+        broken_customers(run),
+    )
     draft = Verdict(EXIT_PASS, [], *parts)
     return Verdict(exit_code_of(draft), reasons_for(draft), *parts)
 
@@ -91,7 +109,7 @@ def judge(run_dir: Path, baseline_dir: Path | None = None) -> Verdict:
 def exit_code_of(verdict: Verdict) -> int:
     if verdict.critical:
         return EXIT_BLOCKED
-    if verdict.unchecked:
+    if verdict.unchecked or verdict.broken_customers:
         return EXIT_INCONCLUSIVE
     if verdict.comparison is None:
         return EXIT_PASS
@@ -105,6 +123,10 @@ def reasons_for(verdict: Verdict) -> list[str]:
         reasons.append(f"{len(verdict.critical)} critical rule violation(s)")
     if verdict.unchecked:
         reasons.append(f"{len(verdict.unchecked)} trial(s) errored and were never checked")
+    if verdict.broken_customers:
+        reasons.append(
+            f"{len(verdict.broken_customers)} break(s) of character by the simulated customer"
+        )
     if verdict.comparison is None:
         reasons.append("no baseline run: task success was not compared")
     else:
