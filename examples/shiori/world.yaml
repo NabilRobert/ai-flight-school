@@ -1,0 +1,12 @@
+# The learners the scenarios sign in as, by their public ids in Juku's
+# fixtures (juku-agents, evals/memory and evals/pipeline). Their data lives
+# in Juku, not here: the fake world only lets the scenarios be checked,
+# and nothing in it changes, so task success only says the chat ended.
+# planted-wulan is the one learner the scripted run adds (slice-plan.md).
+customers:
+  - {id: pipe-joko, name: Joko, email: "", address: "", subscription: active}
+  - {id: pipe-oka, name: Oka, email: "", address: "", subscription: active}
+  - {id: mem-gita, name: Gita, email: "", address: "", subscription: active}
+  - {id: mem-hana, name: Hana, email: "", address: "", subscription: active}
+  - {id: planted-wulan, name: Wulan, email: "", address: "", subscription: active}
+orders: []
