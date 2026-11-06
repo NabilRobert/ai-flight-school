@@ -8,8 +8,11 @@ inputs:
     description: Folder with world.yaml, rules.yaml and scenarios.yaml
     required: true
   agent:
-    description: Your agent factory, as module:attribute (imported from the working directory)
-    required: true
+    description: Your agent factory, as module:attribute (imported from the working directory); or use agent-url
+    default: ""
+  agent-url:
+    description: Your agent's chat endpoint, for an agent started earlier in the job (any language); its key goes in FLIGHTSCHOOL_AGENT_KEY
+    default: ""
   baseline:
     description: A baseline run's records folder to compare task success with (optional)
     default: ""
@@ -34,10 +37,13 @@ runs:
       env:
         SUITE: ${{ inputs.suite }}
         AGENT: ${{ inputs.agent }}
+        AGENT_URL: ${{ inputs.agent-url }}
         BASELINE: ${{ inputs.baseline }}
         EPOCHS: ${{ inputs.epochs }}
         OUT: ${{ inputs.out }}
       run: |
-        args=(run "$SUITE" --agent "$AGENT" --out "$OUT" --epochs "$EPOCHS")
+        args=(run "$SUITE" --out "$OUT" --epochs "$EPOCHS")
+        if [ -n "$AGENT" ]; then args+=(--agent "$AGENT"); fi
+        if [ -n "$AGENT_URL" ]; then args+=(--agent-url "$AGENT_URL"); fi
         if [ -n "$BASELINE" ]; then args+=(--baseline "$BASELINE"); fi
         uv run --with "$GITHUB_ACTION_PATH" flightschool "${args[@]}"

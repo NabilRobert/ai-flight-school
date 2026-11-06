@@ -1,0 +1,14 @@
+# Shiori's own tools: Juku's MCP server (juku-agents,
+# packages/juku-mcp/src/juku_mcp/tools.py), each with its argument names.
+# None takes a learner: Juku reads the learner from the signed token each
+# call carries, so she can't name another learner's data in a call.
+tools:
+  get_progress: []
+  get_mistakes: []
+  recommend_words: []
+  find_reading_sentences: []
+  get_plan: []
+  get_recent_activity: []
+  get_memory: []
+  search_words: [query]
+  request_replan: []

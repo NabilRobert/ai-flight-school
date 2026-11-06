@@ -198,6 +198,42 @@ most agents without touching their code beyond config.
 agent's model calls, but the agent's own code still runs the tools, so the
 fakes can't be guaranteed. Kept as a later option.
 
+**Built (slice 5), with these choices:**
+- **MCP server:** the official MCP SDK's low-level `Server`, in stateless
+  JSON mode, with one private URL per conversation
+  (`?conversation=<token>`). The SDK's high-level `MCPServer` registers
+  tools from Python functions; the shop's tools already have Pydantic
+  argument models, so the low-level server lists them directly.
+- **HTTP client:** httpx (the stack's choice), redirects not followed (X4).
+- **Serving:** uvicorn in a background thread, since Inspect owns the main
+  event loop. The reference agent's endpoint is FastAPI (the stack's HTTP
+  framework); Starlette alone was enough, but FastAPI validates the
+  `ChatRequest` with the same Pydantic models the contract defines.
+- All four were already installed through Inspect; they are now pinned
+  at those versions.
+
+**Built (slice 6, in part), with these choices:**
+- **Reaching the agent:** the HTTP chat contract again, as an
+  `ObservedChatRequest` with no `tools_url` and the account the chat is
+  signed in to (`signed_in_as`), which the agent's own backend needs.
+- **Reading the calls:** mcp-gateway's audit log, read as a file in its
+  documented format (version 1, the same at 66227a2 and 76d58ad), not
+  imported: the core doesn't depend on the gateway (ADR-004). Inspect's
+  `agent_bridge` was the other option; it sees model calls, not the tool
+  calls that reached the backend.
+- **Attribution:** the log has no conversation id, so turns run one at
+  a time and every line written during a turn belongs to it. Unknown
+  lines or format versions stop the trial (fail closed).
+- **Rules:** an observed suite lists the agent's own tools in
+  `tools.yaml`, and its rules are checked against those. `max_calls`
+  without `per_argument` counts per conversation, for `request_replan`,
+  which takes no arguments.
+- **Spike 5, answered from the code (to confirm in the scripted run):**
+  the audit log gives each call's tool and arguments (fields named like
+  secrets are redacted; none of Shiori's are) and whether it ran, but not
+  the tool's output, only its hash. So a rule can't see what planted text
+  said, only what the agent did after reading it.
+
 ## ADR-010: A small fixed set of rule kinds, in YAML
 
 **Decision:** the six rule kinds in Phase 2 (R2), validated by Pydantic,

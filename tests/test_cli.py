@@ -6,6 +6,8 @@ import pytest
 from typer.testing import CliRunner
 
 from flight_school.cli import app
+from flight_school.http.serving import serve_in_thread
+from flight_school.reference.http_agent import CHAT_PATH, reference_app
 
 EXAMPLES = Path(__file__).parent.parent / "examples" / "shop"
 RUNNER = CliRunner()
@@ -114,3 +116,36 @@ def test_a_model_customer_for_hand_written_scenarios_is_inconclusive() -> None:
     )
     assert code == 2
     assert "needs library scenarios" in output
+
+
+def test_agent_url_runs_the_suite_over_http(tmp_path: Path) -> None:
+    with serve_in_thread(reference_app()) as base_url:
+        code, output = flightschool(
+            "run", EXAMPLES, "--agent-url", base_url + CHAT_PATH, "--out", tmp_path
+        )
+    assert code == 0
+    assert "verdict: pass (exit 0)" in output
+
+
+@pytest.mark.parametrize(
+    "options",
+    [[], ["--agent", "flight_school.reference.agent:correct", "--agent-url", "http://x/chat"]],
+    ids=["neither", "both"],
+)
+def test_exactly_one_way_to_reach_the_agent_is_required(options: list[str]) -> None:
+    code, output = flightschool("run", EXAMPLES, *options)
+    assert code == 2
+    assert "give exactly one of --agent" in output
+
+
+def test_an_agent_url_with_a_password_in_it_is_refused() -> None:
+    code, output = flightschool("run", EXAMPLES, "--agent-url", "http://me:secret@127.0.0.1/chat")
+    assert code == 2
+    assert "put the key in FLIGHTSCHOOL_AGENT_KEY" in output
+    assert "secret" not in output
+
+
+def test_serving_an_unknown_reference_variant_is_refused() -> None:
+    code, output = flightschool("serve-reference", "--variant", "nope")
+    assert code == 2
+    assert "no variant 'nope'" in output

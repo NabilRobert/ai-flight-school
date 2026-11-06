@@ -12,6 +12,14 @@ dependencies = [
     # The harness's record format, its graders and `compare` (ADR-018),
     # pinned to a commit as Juku pins it. It brings Inspect AI with it.
     "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@199657b",
+    # Adapter A2 (ADR-009): the agent's chat endpoint over HTTP, its tools
+    # over MCP. The versions Inspect already brings, pinned because Flight
+    # School now imports them itself.
+    "fastapi==0.162.0",
+    "httpx==0.28.1",
+    "mcp==2.3.0",
+    "starlette==1.10.0",
+    "uvicorn==0.54.0",
     "pydantic==2.14.1",
     "pyyaml==6.0.3",
     # The CLI; the harness's own pin, so the two install side by side.

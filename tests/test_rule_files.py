@@ -1,11 +1,15 @@
 """A bad rules file fails before any run, with a message saying what to fix."""
 
+import shutil
 from pathlib import Path
 
 import pytest
 
 from flight_school.config_files import ConfigFileError
 from flight_school.rules.schema import load_rules
+from flight_school.suite import load_suite
+
+SHIORI_SUITE = Path(__file__).parent.parent / "examples" / "shiori"
 
 
 def rules_file(tmp_path: Path, body: str) -> Path:
@@ -99,3 +103,27 @@ def test_rules_file_that_is_not_yaml_says_so(tmp_path: Path) -> None:
     path.write_text("rules: [unclosed\n")
     with pytest.raises(ConfigFileError, match="not valid YAML"):
         load_rules(path)
+
+
+@pytest.mark.parametrize(
+    ("rule", "problem"),
+    [
+        (
+            "{id: r, kind: forbidden_tool, severity: critical, tool: issue_refund}",
+            "no tool issue_refund",
+        ),
+        (
+            "{id: r, kind: max_calls, severity: critical, tool: get_plan, per_argument: week, max: 1}",
+            "get_plan takes no argument week",
+        ),
+    ],
+    ids=["a-shop-tool", "an-unknown-argument"],
+)
+def test_an_observed_suites_rules_are_checked_against_its_own_tools(
+    tmp_path: Path, rule: str, problem: str
+) -> None:
+    suite = tmp_path / "shiori"
+    shutil.copytree(SHIORI_SUITE, suite)
+    (suite / "rules.yaml").write_text(f"rules: [{rule}]\n", encoding="utf-8")
+    with pytest.raises(ConfigFileError, match=problem):
+        load_suite(suite)

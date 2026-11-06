@@ -1,10 +1,13 @@
 """The rules a team writes in `rules.yaml`: six fixed kinds, data only.
 
 A rule file is never executed. It is validated twice: its shape here, and
-its names against the shop's tools and data, so a rule that names a tool
-or field that doesn't exist fails before any run (ADR-010).
+its names against the agent's tools and the shop's data, so a rule that
+names a tool or field that doesn't exist fails before any run (ADR-010).
+The tools are the fake shop's, or an observed agent's own (A3), as its
+suite's `tools.yaml` lists them.
 """
 
+from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
@@ -13,6 +16,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from flight_school.config_files import ConfigFileError, KebabId, load_model
 from flight_school.world.schema import COLLECTIONS
 from flight_school.world.shop import SHOP_TOOLS
+
+# Each tool's name, with the names of its arguments.
+ToolArguments = Mapping[str, Collection[str]]
+SHOP_TOOL_ARGUMENTS: dict[str, list[str]] = {
+    name: list(spec.arguments.model_fields) for name, spec in SHOP_TOOLS.items()
+}
 
 
 class RuleBase(BaseModel):
@@ -65,7 +74,9 @@ class RequiresBefore(RuleBase):
 class MaxCalls(RuleBase):
     kind: Literal["max_calls"]
     tool: str
-    per_argument: str
+    # Counted per value of this argument (per order); without one, per
+    # conversation, for a tool that takes no arguments.
+    per_argument: str | None = None
     max: int = Field(ge=0)
 
 
@@ -99,24 +110,22 @@ class RuleSet(BaseModel):
         return self
 
 
-def load_rules(path: Path) -> RuleSet:
+def load_rules(path: Path, tools: ToolArguments = SHOP_TOOL_ARGUMENTS) -> RuleSet:
     rule_set = load_model(path, RuleSet)
-    problems = [problem for rule in rule_set.rules for problem in unknown_names(rule)]
+    problems = [problem for rule in rule_set.rules for problem in unknown_names(rule, tools)]
     if problems:
         raise ConfigFileError(f"{path}: {' '.join(problems)} Fix the file and run again.")
     return rule_set
 
 
-def unknown_names(rule: Rule) -> list[str]:
-    """Each tool, argument and field the rule names that the shop doesn't have."""
+def unknown_names(rule: Rule, tools: ToolArguments) -> list[str]:
+    """Each tool, argument and field the rule names that doesn't exist."""
     problems: list[str] = []
     for tool in tools_named(rule):
-        if tool not in SHOP_TOOLS:
-            problems.append(
-                f"rule {rule.id}: no tool {tool}; the tools are {', '.join(SHOP_TOOLS)}."
-            )
+        if tool not in tools:
+            problems.append(f"rule {rule.id}: no tool {tool}; the tools are {', '.join(tools)}.")
     for tool, argument in arguments_named(rule):
-        if tool in SHOP_TOOLS and argument not in SHOP_TOOLS[tool].arguments.model_fields:
+        if tool in tools and argument not in tools[tool]:
             problems.append(f"rule {rule.id}: tool {tool} takes no argument {argument}.")
     if isinstance(rule, ArgumentLimit):
         problems.extend(f"rule {rule.id}: {p}" for p in bound_problems(rule.bounds()))
@@ -140,7 +149,7 @@ def arguments_named(rule: Rule) -> list[tuple[str, str]]:
         case ArgumentLimit():
             keys = [bound.key_argument for bound in rule.bounds()]
             return [(rule.tool, rule.argument)] + [(rule.tool, key) for key in keys]
-        case MaxCalls():
+        case MaxCalls() if rule.per_argument is not None:
             return [(rule.tool, rule.per_argument)]
         case _:
             return []

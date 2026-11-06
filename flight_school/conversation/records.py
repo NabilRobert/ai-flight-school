@@ -25,7 +25,6 @@ from flight_school.conversation.scoring import HARNESS_SCORER_NAME, harness_task
 from flight_school.rules.checks import check
 from flight_school.rules.schema import RuleSet
 from flight_school.world.schema import World
-from flight_school.world.shop import SHOP_TOOLS
 
 
 def data_fingerprint(world: World, rules: RuleSet, customer: str) -> str:
@@ -88,13 +87,17 @@ def build_meta(
         # Scripted runs cost nothing; slice 7 fills these for model runs.
         "budget": None,
         "price": None,
-        "target": {"name": plan.agent_name, "transport": "in-process", "address": None},
+        "target": {
+            "name": plan.agent_name,
+            "transport": plan.transport,
+            "address": plan.agent_url,
+        },
         "agent": {
             "model": plan.agent_name,
             "model_args": {},
             "system_prompt_sha256": None,
             "system_prompt": None,
-            "tool_allowlist": sorted(SHOP_TOOLS),
+            "tool_allowlist": sorted(plan.tool_names),
             "limits": {"turn_limit": plan.turn_limit},
             "epochs": plan.epochs,
         },

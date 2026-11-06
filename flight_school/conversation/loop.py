@@ -71,8 +71,9 @@ def conversation(
         record.customer_id = scenario.customer_id
         # The sample's input is only a label; the loop builds the chat.
         state.messages = []
+        tools = AgentTools(shop, signed_in_as=scenario.customer_id)
         try:
-            await take_turns(state, customer, shop, agent_factory, turn_limit)
+            await take_turns(state, customer, tools, agent_factory, turn_limit)
         finally:
             # Also on the turn limit, so the scorer sees the calls made.
             record.tool_calls = [asdict(call) for call in shop.calls]
@@ -86,11 +87,10 @@ def conversation(
 async def take_turns(
     state: TaskState,
     customer: Customer,
-    shop: FakeShop,
+    tools: AgentTools,
     agent_factory: AgentFactory,
     turn_limit: int,
 ) -> None:
-    tools = AgentTools(shop)
     reply = agent_factory(tools)
     record = state.store_as(ConversationRecord)
     chat: list[Message] = []

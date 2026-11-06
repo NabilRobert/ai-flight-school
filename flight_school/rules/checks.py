@@ -127,14 +127,23 @@ def check_max_calls(rule: MaxCalls, log: ConversationLog) -> list[Violation]:
     counts: dict[str, int] = {}
     violations: list[Violation] = []
     for call in calls_to(log, rule.tool):
-        key = call.arguments.get(rule.per_argument)
-        if not call.succeeded or not isinstance(key, str):
+        key = counted_under(rule, call)
+        if not call.succeeded or key is None:
             continue
         counts[key] = counts.get(key, 0) + 1
         if counts[key] > rule.max:
-            detail = f"{rule.tool} for {rule.per_argument}={key}, call {counts[key]} of {rule.max}"
+            detail = f"{rule.tool}{key}, call {counts[key]} of {rule.max}"
             violations.append(found(rule, call, detail))
     return violations
+
+
+def counted_under(rule: MaxCalls, call: ToolCall) -> str | None:
+    """What a call is counted under, as it reads in a finding: its
+    `per_argument` value, or one count for the conversation."""
+    if rule.per_argument is None:
+        return ""
+    key = call.arguments.get(rule.per_argument)
+    return f" for {rule.per_argument}={key}" if isinstance(key, str) else None
 
 
 def check_same_subject(rule: SameSubject, log: ConversationLog, world: World) -> list[Violation]:
