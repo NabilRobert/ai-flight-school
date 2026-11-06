@@ -30,5 +30,17 @@ class ChatRequest(BaseModel):
     tools_url: str
 
 
+class ObservedChatRequest(BaseModel):
+    """A turn for an observed agent (A3), which keeps its own tools: no
+    `tools_url`, but the account the chat is signed in to, which its own
+    backend uses to pick the data."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    conversation_id: str = Field(min_length=1)
+    messages: list[ChatMessage] = Field(min_length=1)
+    signed_in_as: str = Field(min_length=1)
+
+
 class ChatResponse(BaseModel):
     reply: str
