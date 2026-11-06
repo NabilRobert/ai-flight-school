@@ -239,7 +239,10 @@ sequenceDiagram
 
 `tests/observed_stub.py` is a stand-in Shiori that writes audit lines the
 way the gateway does; `tests/test_observer.py` runs the Shiori suite
-against it and its seeded bugs.
+against it and its seeded bugs. For the real Shiori, Juku's
+`evals/flight_school_server.py` serves her on its eval stack and prints
+the chat URL and audit log to pass to `flightschool run`; the result is
+in the [slice plan](planning/slice-plan.md).
 
 ## The flow: checking one conversation
 
