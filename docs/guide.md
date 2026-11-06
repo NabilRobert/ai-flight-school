@@ -372,10 +372,9 @@ The six rule kinds:
   differ.
 - If `flightschool` itself crashes, Python exits 1 with a traceback, the
   same code as "blocked". CI fails either way.
-- The Action's CI job (`gate` in `.github/workflows/ci.yml`) can only run
-  once the repository is on GitHub. Its shell step was run locally from a
-  separate folder, with the correct agent (exit 0) and a seeded bug
-  (exit 1).
+- A process the `gate` job leaves running in the background must not be
+  a `uv run`: it holds uv's cache lock, and setup-uv's post step then
+  fails the job after a 5-minute wait. Start it from `.venv/bin/`.
 
 ## Where to change things
 
