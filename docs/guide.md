@@ -190,6 +190,57 @@ The reference agent behind this contract is
 an MCP client (`over_mcp`) as its way to call tools.
 `tests/test_http.py` checks every variant gets the same verdict both ways.
 
+## The flow: an agent that keeps its own tools
+
+`flightschool run examples/shiori --agent-url URL --audit-log LOG
+--caller shiori` tests an agent whose tools are real and stay its own,
+such as Juku's Shiori behind mcp-gateway. Flight School can't hold her
+tools, so it reads what she called from the gateway's audit log.
+
+```mermaid
+sequenceDiagram
+    participant L as loop (take_turns)
+    participant O as observed_agent reply
+    participant A as agent (Shiori)
+    participant G as mcp-gateway
+    participant F as audit log file
+    L->>O: chat so far
+    O->>F: note its size (where this turn starts)
+    O->>A: POST ObservedChatRequest (conversation_id, messages, signed_in_as)
+    A->>G: tools/call, with its own gateway key
+    G->>F: a call line, then a result line
+    A-->>O: ChatResponse {reply}
+    O->>F: read the lines written since
+    O->>L: reply text; the calls go in the log
+```
+
+1. **Check the options against the suite.** `cli.py: observer_for` reads
+   the suite: one with a `tools.yaml` (`suite.py: ToolFile`) needs
+   `--audit-log` and `--caller`; one on the fake shop takes neither. Its
+   rules were already checked against those tools
+   (`rules/schema.py: load_rules`).
+2. **Each turn is one POST.** `observer/adapter.py: observed_agent`
+   posts an `ObservedChatRequest` (`http/contract.py`) through the same
+   `post_turn` as A2. Instead of a `tools_url`, it carries
+   `signed_in_as`, the scenario's account, which the agent's own backend
+   uses to pick the learner.
+3. **One turn at a time.** The audit log has no conversation id, so the
+   adapter holds a lock from just before the POST until it has read the
+   log: every line written meanwhile belongs to this turn.
+4. **Read the calls.** `observer/audit_log.py: read_from` reads the
+   complete lines written since the turn began. `observed_calls` keeps
+   the `--caller`'s `call` lines and gives each a `ToolCall`: it
+   succeeded if the gateway forwarded it, the tool ran, and the tool
+   returned no error (`call_error`). A line that isn't in the gateway's
+   format stops the trial as an error.
+5. **The rest is unchanged.** `AgentTools.record_observed` puts the calls
+   in the conversation's log, so the checker, the records (target
+   `transport: observed`) and the gate treat them like the shop's.
+
+`tests/observed_stub.py` is a stand-in Shiori that writes audit lines the
+way the gateway does; `tests/test_observer.py` runs the Shiori suite
+against it and its seeded bugs.
+
 ## The flow: checking one conversation
 
 A conversation's record goes in; a list of rule breaks comes out. The
@@ -275,6 +326,11 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **Tool server** | The MCP server for one run, on 127.0.0.1. Each conversation gets its own URL and reaches only its own shop | `http/tool_server.py: ToolServer` |
 | **`tools_url`** | The conversation's private MCP URL, sent with every turn | `ToolServer.register` |
 | **Agent key** | `FLIGHTSCHOOL_AGENT_KEY`: sent to the agent as a bearer token, never written to records or output | `http/adapter.py: auth_headers` |
+| **Observer adapter (A3)** | How an agent that keeps its own tools plugs in: Flight School chats with it over HTTP and reads its calls from mcp-gateway's audit log | `observer/adapter.py: observed_agent` |
+| **Audit log** | mcp-gateway's file of JSON lines, one per call and per result, with the tool, its arguments and the gateway's decision, but not the tool's output | `observer/audit_log.py` |
+| **Caller** | The name of the gateway key an agent's calls are logged under (`shiori`); lines from other callers are ignored | `--caller`, `Observer.caller` |
+| **Observed suite** | A suite with a `tools.yaml` listing the agent's own tools and their arguments; its rules are checked against them | `suite.py: ToolFile`, `examples/shiori/` |
+| **`signed_in_as`** | The account an observed agent's chat is signed in to, sent with each turn; agents on the fake shop aren't told it | `AgentTools.signed_in_as` |
 | **In-process adapter** | How a Python agent plugs in: a factory takes the shop's tools and returns a `reply` function for one conversation | `conversation/agent.py` |
 | **Scenario** | One conversation to run: who the customer is, their lines, and the changes the shop's data should show afterwards | `conversation/scenario.py: Scenario` |
 | **Stop marker** | `###DONE###` or `###GAVE_UP###`: how the customer ends a conversation. Only the customer's count | `scenario.py: STOP_MARKERS` |
@@ -291,7 +347,7 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **Severity** | `critical` rules will block a release; `warning` rules are only reported | `RuleBase.severity` |
 | **Violation** | One break of one rule, with its turn and a description | `rules/checks.py: Violation` |
 | **Labelled log** | A hand-written conversation record, marked with the violations it must produce | `tests/fixtures/logs/` |
-| **Suite** | A folder with `world.yaml`, `rules.yaml` and `scenarios.yaml`, and optionally a `library/`, named after the folder | `suite.py: load_suite` |
+| **Suite** | A folder with `world.yaml`, `rules.yaml` and `scenarios.yaml`, and optionally a `library/` (or, for an observed agent, a `tools.yaml`), named after the folder | `suite.py: load_suite` |
 | **Gate** | Turns a run's records into one exit code: 0 pass, 1 blocked, 2 inconclusive (the harness's codes) | `gate.py: judge` |
 | **Absolute gate** | Any critical violation in any trial blocks, however rare | `gate.py: exit_code_of` |
 | **Relative gate** | Task success compared with a baseline run by the harness's `compare` (pooled z-test) | `gate.py: judge`, `--baseline` |
@@ -319,7 +375,7 @@ The six rule kinds:
 | `forbidden_tool` | The tool is called at all | `delete_account` |
 | `argument_limit` | An argument is over `at_most` or under `at_least`; a limit can be a number or a field of the world | A refund over the order total |
 | `requires_before` | The tool is called before `requires` has succeeded for the same customer | A refund before `verify_identity` |
-| `max_calls` | More than `max` successful calls for the same value of `per_argument` | Two refunds on one order |
+| `max_calls` | More than `max` successful calls for the same value of `per_argument`, or in the conversation if it names none | Two refunds on one order; two replans |
 | `same_subject` | One of `tools` acts on a different customer's account | Refunding someone else's order |
 | `forbidden_text` | A reply contains one of `texts`, ignoring case, full-width forms and zero-width characters | Revealing the manager code |
 
@@ -356,6 +412,17 @@ The six rule kinds:
 - A tool call an agent makes after its reply has been cut off by the
   time limit reaches a shop that has already been scored, so it changes
   nothing and isn't recorded.
+- The observer reads one gateway's log, with no conversation id in it:
+  turns run one at a time, and the gateway must serve only this run, or
+  another client's calls under the same caller would be counted.
+- An observed agent's output from its tools isn't logged (only a hash),
+  and its data isn't in the fake world, so its task success only says the
+  conversation ended. Its rules can check its calls and replies only.
+- A call the agent makes after its reply, in the background, lands in the
+  next turn's lines, or in none if it was the last turn.
+- A gateway that crashes or has its log replaced mid-turn leaves a line
+  that isn't JSON, or a shorter file: the trial stops as an error, never
+  a pass with calls missing.
 - Each trial stores the whole world twice (expected and actual), which is
   fine for a small fake shop and would need a diff for a large one.
 - Scripted runs record their cost as unknown, not $0: the harness prices
@@ -402,6 +469,11 @@ The six rule kinds:
   `http/contract.py`, call tools on its `tools_url` with any MCP client,
   then run `flightschool run SUITE --agent-url http://127.0.0.1:PORT/chat`.
   `reference/http_agent.py` is a working example in Python.
+- **Test an agent that keeps its own tools:** put it behind mcp-gateway,
+  answer `ObservedChatRequest` (`http/contract.py`), list its tools in the
+  suite's `tools.yaml`, and run with `--agent-url`, `--audit-log` and
+  `--caller`. `examples/shiori/` is the example. If the gateway's log
+  format changes, `observer/audit_log.py` is the one file that reads it.
 - **Change the chat contract or the tool server:** `http/contract.py` and
   `http/tool_server.py`; the reply timeout and the key's variable are in
   `http/adapter.py`.

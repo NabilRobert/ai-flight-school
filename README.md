@@ -9,7 +9,7 @@ the customer's identity is checked, fails the build.
 ## Status
 
 **Resumed on 2026-11-05, after a pause after slice 3. Slices 1 to 5 of 8
-are built, all at $0.**
+are built, and slice 6 in part, all at $0.**
 
 - **Works today:** the rule checker and the fake shop (slice 1); the
   conversation loop, with records the
@@ -18,14 +18,18 @@ are built, all at $0.**
   the GitHub Action, and a reference agent with seven seeded bugs that the
   gate catches in every trial (slice 3); the seed library, the sampler,
   the model-customer path and the in-character checks (slice 4); agents in
-  any language over HTTP, with the fake tools served over MCP (slice 5).
+  any language over HTTP, with the fake tools served over MCP (slice 5);
+  the observer for an agent that keeps its own tools, with a suite for
+  Juku's Shiori, tested against a stand-in (slice 6, in part).
 - **Tested without a real model:** the model customer runs end to end on
   Inspect's `mockllm`. No real model has played a customer yet.
 - **Not done yet:** slice 5's timed setup test, where someone new adds
   the gate to CI from this README in under 15 minutes (G7). It needs a
   person; the steps are in the [slice plan](docs/planning/slice-plan.md).
+  Slice 6's scripted run against the real Shiori, on Juku's eval stack,
+  is waiting for time on that stack; no result exists yet.
 - **Planned next:** a thesis pilot with simulated Indonesian sales
-  customers on local models; a run against a real agent (slice 6); a paid
+  customers on local models; the run against the real Shiori (slice 6); a paid
   accuracy run with model customers (slice 7, needs a budget not yet
   funded); the write-up (slice 8). The plan is in
   [docs/planning/](docs/planning/slice-plan.md).
@@ -63,6 +67,13 @@ Try it with the commands in [Run it](#run-it).
   `127.0.0.1`, one private URL per conversation. The reference agent gets
   the same verdict both ways. A key for the endpoint goes in
   `FLIGHTSCHOOL_AGENT_KEY`; it is sent, never written.
+- **Agents that keep their own tools** (`--audit-log`, `--caller`): for
+  an agent behind [mcp-gateway](https://github.com/NabilRobert/mcp-gateway),
+  Flight School posts each turn as above and reads the calls it made
+  from the gateway's audit log, so they are still observed, not
+  self-reported. `examples/shiori/` is a suite for Juku's Shiori: another
+  learner's data, abusing `request_replan`, and obeying planted text. Its
+  rules name her own tools, listed in its `tools.yaml`.
 - **The conversation loop**, on [Inspect AI](https://inspect.aisi.org.uk/):
   customer and agent take turns until the customer ends it with
   `###DONE###` or `###GAVE_UP###`. Running out of turns or time is never a
@@ -107,6 +118,14 @@ Your agent answers `POST` requests shaped like
 `flight_school/http/contract.py: ChatRequest` with `{"reply": "..."}`, and
 calls its tools over MCP on the request's `tools_url`.
 
+Gate an agent that keeps its own tools behind mcp-gateway, reading its
+calls from the gateway's audit log (`--caller` is its gateway key's name):
+
+```bash
+uv run flightschool run examples/shiori --agent-url http://127.0.0.1:8100/chat \
+  --audit-log /path/to/gateway-audit.jsonl --caller shiori
+```
+
 Adding `--customer-model openai/gpt-5-mini` (any Inspect model) has a
 model play the customers; that calls the provider on your key.
 
@@ -137,15 +156,18 @@ Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key unless you use
 | `flight_school/conversation/` | Scenarios, the agent adapter, the customer (scripted or model) and its in-character checks, the loop, the scorer, the records |
 | `flight_school/gate.py` | The release gate: one exit code from a run's records |
 | `flight_school/cli.py` | The `flightschool` command: `run` and `accuracy` |
-| `flight_school/suite.py` | Loading a suite folder (world, rules, scenarios) |
+| `flight_school/suite.py` | Loading a suite folder (world, rules, scenarios, and an observed agent's tools) |
 | `flight_school/http/` | Adapter A2: the chat contract, the HTTP adapter, the MCP tool server, and the local server helper |
+| `flight_school/observer/` | Adapter A3: reading an agent's calls from mcp-gateway's audit log (`audit_log.py`), and the adapter (`adapter.py`) |
 | `flight_school/library/` | The seed library's entries (`schema.py`), and crossing and sampling them into scenarios (`sampler.py`) |
 | `flight_school/reference/` | The reference agent, its seeded bugs, the accuracy report, and the agent served over HTTP (`http_agent.py`) |
 | `action.yml` | The GitHub Action |
 | `flight_school/config_files.py` | Loading YAML files, with errors that say what to fix |
 | `examples/shop/` | The example world, rules and scenarios; `library/` holds its seed library |
+| `examples/shiori/` | A suite for Juku's Shiori, an observed agent: her tools (`tools.yaml`), rules and scenarios |
 | `tests/fixtures/logs/` | The labelled conversations, one file per rule kind |
 | `tests/scripted_agents.py` | Agents that make fixed calls, for the loop's tests |
+| `tests/observed_stub.py` | A stand-in Shiori that writes gateway audit lines, with seeded bugs |
 | `docs/guide.md` | How a check runs, step by step, and a glossary |
 | `docs/accuracy.md` | The $0 accuracy report, generated by `flightschool accuracy` |
 
