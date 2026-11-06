@@ -13,7 +13,9 @@ from inspect_ai.model import Model
 from flight_school.conversation.agent import AgentFactory
 from flight_school.conversation.loop import DEFAULT_TURN_LIMIT
 from flight_school.conversation.scenario import Scenario, ScenarioSet, expected_world
+from flight_school.observer.adapter import Observer
 from flight_school.rules.schema import RuleSet
+from flight_school.world.shop import SHOP_TOOLS
 from flight_school.world.schema import World
 
 # Wall-clock time one conversation may take before it is stopped and
@@ -41,6 +43,15 @@ class RunPlan:
     customer_model: str | Model | None = None
     # Set when the agent is reached over HTTP (A2); recorded as the target.
     agent_url: str | None = None
+    # Set when the agent keeps its own tools (A3), with their names.
+    observer: Observer | None = None
+    tool_names: tuple[str, ...] = tuple(SHOP_TOOLS)
+
+    @property
+    def transport(self) -> str:
+        if self.observer is not None:
+            return "observed"
+        return "in-process" if self.agent_url is None else "http"
 
     @property
     def customer_name(self) -> str:

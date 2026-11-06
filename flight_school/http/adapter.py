@@ -15,7 +15,12 @@ from collections.abc import Sequence
 import httpx
 
 from flight_school.conversation.agent import AgentFactory, AgentTools, Message, Reply
-from flight_school.http.contract import ChatMessage, ChatRequest, ChatResponse
+from flight_school.http.contract import (
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    ObservedChatRequest,
+)
 from flight_school.http.tool_server import ToolServer
 
 # Sent as `Authorization: Bearer <key>` when set, for an endpoint that
@@ -44,7 +49,7 @@ def http_agent(agent_url: str, tool_server: ToolServer) -> AgentFactory:
     return make
 
 
-async def post_turn(agent_url: str, request: ChatRequest) -> str:
+async def post_turn(agent_url: str, request: ChatRequest | ObservedChatRequest) -> str:
     """One turn. A refused request, a non-2xx answer or a reply that isn't
     a `ChatResponse` raises, so the trial is an error."""
     async with httpx.AsyncClient(timeout=REPLY_TIMEOUT_SECONDS) as client:

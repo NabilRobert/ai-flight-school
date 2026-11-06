@@ -5,7 +5,9 @@
   0 pass, 1 blocked, 2 inconclusive. `--sample N --seed S` runs N
   scenarios drawn from the suite's seed library instead, and
   `--customer-model` has a model play the customers. `--agent-url`
-  reaches an agent over HTTP instead, with its tools served over MCP.
+  reaches an agent over HTTP instead, with its tools served over MCP;
+  add `--audit-log` and `--caller` for an agent that keeps its own tools
+  behind mcp-gateway, whose calls are read from the gateway's log.
 - `flightschool serve-reference` serves the reference agent over HTTP,
   to try `--agent-url` against.
 - `flightschool accuracy` measures Flight School itself on the reference
@@ -38,7 +40,9 @@ from flight_school.reference.accuracy import accuracy_from_records, render, run_
 from flight_school.reference.agent import Bug
 from flight_school.reference.http_agent import reference_app
 from flight_school.library.sampler import sample_scenarios
+from flight_school.observer.adapter import Observer, observed_agent
 from flight_school.suite import Suite, load_suite
+from flight_school.world.shop import SHOP_TOOLS
 
 app = typer.Typer(no_args_is_help=True, help="Simulated customers against your support agent.")
 
@@ -78,16 +82,41 @@ def checked_agent_url(url: str) -> str:
     return url
 
 
+def observer_for(suite: Suite, audit_log: Path | None, caller: str | None) -> Observer | None:
+    """An observed suite (one with tools.yaml) needs the gateway's log and
+    caller; a suite on the fake shop takes neither."""
+    if suite.observed_tools is None:
+        if audit_log is not None or caller is not None:
+            raise AgentLoadError(
+                f"--audit-log and --caller are for an observed agent's suite (one with a"
+                f" tools.yaml); {suite.name} runs on the fake shop."
+            )
+        return None
+    if audit_log is None or caller is None:
+        raise AgentLoadError(
+            f"suite {suite.name} is for an agent that keeps its own tools: give --audit-log"
+            " (the gateway's audit log) and --caller (the agent's gateway key name)."
+        )
+    return Observer(audit_log, caller)
+
+
 @contextmanager
-def reaching_agent(agent: str | None, agent_url: str | None) -> Iterator[AgentFactory]:
-    """The agent's factory; for --agent-url, with the MCP tool server
-    running until the block ends."""
+def reaching_agent(
+    agent: str | None, agent_url: str | None, observer: Observer | None
+) -> Iterator[AgentFactory]:
+    """The agent's factory; for --agent-url on the fake shop, with the MCP
+    tool server running until the block ends."""
     if (agent is None) == (agent_url is None):
         raise AgentLoadError("give exactly one of --agent (in process) or --agent-url (HTTP).")
     if agent is not None:
+        if observer is not None:
+            raise AgentLoadError("an observed agent is reached over HTTP: give --agent-url.")
         yield load_agent(agent)
         return
     url = checked_agent_url(agent_url or "")
+    if observer is not None:
+        yield observed_agent(url, observer)
+        return
     with running_tool_server() as tool_server:
         yield http_agent(url, tool_server)
 
@@ -141,12 +170,17 @@ def run(  # noqa: PLR0913 -- each parameter is one of the command's options
     customer_model: Annotated[
         str | None, typer.Option(help="Inspect model for the customers; costs on your key")
     ] = None,
+    audit_log: Annotated[
+        Path | None, typer.Option(help="observed agent: the gateway's audit log")
+    ] = None,
+    caller: Annotated[str | None, typer.Option(help="observed agent: its gateway caller")] = None,
 ) -> None:
     """Run every scenario against the agent and gate on the result."""
     try:
         loaded = load_suite(suite)
         scenarios = scenarios_to_run(loaded, sample, seed)
-        with reaching_agent(agent, agent_url) as factory:
+        observer = observer_for(loaded, audit_log, caller)
+        with reaching_agent(agent, agent_url, observer) as factory:
             plan = RunPlan(
                 loaded.world,
                 loaded.rules,
@@ -158,6 +192,8 @@ def run(  # noqa: PLR0913 -- each parameter is one of the command's options
                 epochs=epochs,
                 customer_model=customer_model,
                 agent_url=agent_url,
+                observer=observer,
+                tool_names=tuple(loaded.observed_tools or SHOP_TOOLS),
             )
             run_plan(plan, out)
     except (ConfigFileError, AgentLoadError, ValueError) as error:
