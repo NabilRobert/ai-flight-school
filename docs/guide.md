@@ -128,8 +128,9 @@ flowchart TD
 3. **Build each scenario.** `scenario_from` joins the three:
    - **script:** the persona's opening, then the goal's lines, with the
      tactic's lines just before the goal's last line;
-   - **customer prompt:** `PROMPT_TEMPLATE` filled with the three
-     descriptions, for a model customer;
+   - **customer prompt:** `PROMPT_TEMPLATE` (or the library's own
+     `prompt.txt`) filled with the three descriptions, for a model
+     customer;
    - **mentions:** what the customer must bring up, from the goal;
    - **id:** `goal.persona.tactic`, for example
      `refund-own-order.angry.insists`.
@@ -140,6 +141,60 @@ flowchart TD
    scenario without a prompt, `run_plan` sets Inspect's `user` role to
    that model, and the loop uses `customer.py: model_customer`. Without
    it, every customer is scripted and the run costs $0.
+
+## The flow: a paired sales run (thesis pilot)
+
+The thesis asks whether a simulated customer plus a judge can rank agent
+versions correctly ([thesis-pilot.md](planning/thesis-pilot.md)). The pilot
+runs the same 50 Indonesian sales chats against two agents and pairs them:
+
+```bash
+uv run flightschool run examples/sales-id --sample 50 --seed 1 \
+  --agent flight_school.reference.sales_agent:healthy --agent-model ollama/llama3.2:3b \
+  --customer-model ollama/qwen3.5:4b --out runs/healthy
+uv run flightschool pairs runs/healthy runs/degraded
+uv run agent-eval compare runs/healthy runs/degraded --gate v3
+```
+
+```mermaid
+flowchart TD
+    LIB[examples/sales-id/library + prompt.txt] -->|sample_scenarios 50, seed| S[50 scenarios, pass_when customer_done]
+    S --> L{loop}
+    C[model customer: opens with script line 1, seed from scenario and epoch] --> L
+    A[sales agent: instructions + Inspect agent role] --> L
+    L --> R[trials.jsonl + meta.json with the models' digests]
+    L --> CH[chats.jsonl: one chat record per trial]
+    R --> CMP[agent-eval compare --gate v3: paired on task_id, attempt]
+    CH --> PR[flightschool pairs: where each pair first differs]
+```
+
+1. **The suite has no tools and no rules.** `examples/sales-id/world.yaml`
+   names only the prospect, and `rules.yaml` is empty, so the checker finds
+   nothing. Its goals say `pass_when: customer_done`: `scoring.py:
+   harness_task` then expects one row, `{"stop_marker": "###DONE###"}`, and
+   `state_grade` grades the stop marker the customer ended with. That is
+   the simulator grading itself, a placeholder until Project 15's judge.
+2. **The customer is the same in both runs.** `customer.py:
+   model_customer` says the scenario's first scripted line as written (the
+   persona's opening), then plays the library's own `prompt.txt`, in
+   Indonesian. Its seed is `customer_seed(scenario id, epoch)`, stored on
+   the trial as `customer_seed`. It may end with `###GHOSTED###`: leaving
+   without a word is a normal ending in sales, and a fail, not an error.
+3. **The agent is a model with instructions.** `reference/sales_agent.py`
+   has `healthy` and `never_quotes_price`, the seeded degradation. Its
+   model is Inspect's `agent` role (`--agent-model`), not seeded, so two
+   runs of the same agent differ only by the model's own sampling.
+4. **The records name the models.** `conversation/environment.py:
+   run_models` asks Ollama for each local model's file digest and version
+   before the run starts. The customer's goes in the data fingerprint, so
+   the harness's `compare` refuses runs whose customers differ.
+5. **The chats are exported.** `export/chats.py` writes `chats.jsonl`, one
+   record per trial in Project 15's `ChatRecord` shape (ADR-002 there),
+   with `source: "synthetic"`, the markers taken out, and a ghosting line
+   dropped so the chat ends on the agent. Its hash is in the meta.
+6. **The pairs are read.** `export/pairs.py: pair_runs` matches chats on
+   (scenario, epoch) and reports the first reply where the agents differ
+   and whether the customer said the same lines until then.
 
 ## The flow: an agent over HTTP
 
@@ -336,7 +391,14 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **`signed_in_as`** | The account an observed agent's chat is signed in to, sent with each turn; agents on the fake shop aren't told it | `AgentTools.signed_in_as` |
 | **In-process adapter** | How a Python agent plugs in: a factory takes the shop's tools and returns a `reply` function for one conversation | `conversation/agent.py` |
 | **Scenario** | One conversation to run: who the customer is, their lines, and the changes the shop's data should show afterwards | `conversation/scenario.py: Scenario` |
-| **Stop marker** | `###DONE###` or `###GAVE_UP###`: how the customer ends a conversation. Only the customer's count | `scenario.py: STOP_MARKERS` |
+| **Stop marker** | `###DONE###`, `###GAVE_UP###` or `###GHOSTED###` (left without a word): how the customer ends a conversation. Only the customer's count | `scenario.py: STOP_MARKERS` |
+| **`pass_when`** | What makes a trial pass: the shop's data ends as expected (`world_matches`), or the customer ends with `###DONE###` (`customer_done`, for a suite with no data to change) | `scenario.py: PassWhen`, `scoring.py: harness_task` |
+| **Customer seed** | The model customer's seed, from the scenario and the epoch, so two runs give it the same draws until the agents' replies differ | `customer.py: customer_seed` |
+| **Pair key** | `(task_id, attempt)`: how two runs' trials are matched for an A/B comparison | `export/chats.py`, `export/pairs.py` |
+| **`diverged_at_turn`** | The first agent reply where two paired chats differ | `export/pairs.py: diverged_at_turn` |
+| **Chat record** | One conversation in Project 15's `ChatRecord` shape, in `chats.jsonl` beside a run | `export/chats.py: chat_record` |
+| **Agent model role** | The model behind a model-backed in-process agent, as Inspect's `agent` role (`--agent-model`) | `run.py: model_roles`, `reference/sales_agent.py` |
+| **Model environment** | A model's name and, for a local one, its file digest and Ollama's version, read before the run | `conversation/environment.py` |
 | **Turn limit** | The most replies the agent gets. Reaching it without a stop marker is a fail | `loop.py: DEFAULT_TURN_LIMIT` |
 | **Task success** | The shop's data after the conversation equals the data before it plus exactly the expected changes, as τ²-bench checks its database | `scoring.py: state_grade` |
 | **Trial** | One run of one scenario. `epochs` is Inspect's word for how many trials each scenario gets | One line of `trials.jsonl` |
@@ -384,6 +446,16 @@ The six rule kinds:
 
 ## Known limits
 
+- The sales suite's pass is the customer's own stop marker: the simulator
+  grading itself. It shows the pipeline works, not that the agent sold
+  well, until Project 15's rubric judge replaces it.
+- Flight School takes strict turns, so a burst of WhatsApp messages is
+  one turn with several lines, and timestamps aren't simulated. That is a
+  known gap when comparing simulated chats with real ones (the thesis's
+  RQ1).
+- A paired customer's draws match only while the agents' replies do, and
+  only on the same Ollama build and model file: seeded output isn't
+  promised across builds or machines.
 - `forbidden_text` matches text, so a secret spelled out with spaces
   ("M G R - 7 4 2 1") gets through. A labelled log pins this, so it is never
   mistaken for coverage.
@@ -447,6 +519,12 @@ The six rule kinds:
   fails the job after a 5-minute wait. Start it from `.venv/bin/`.
 
 ## Where to change things
+
+- **Change the sales suite:** `examples/sales-id/library/` (personas,
+  goals, tactics and the Indonesian `prompt.txt`). **Change the sales
+  agents or the seeded degradation:** `reference/sales_agent.py`.
+  **Change the chat record's fields:** `export/chats.py`, the one place
+  that knows Project 15's format.
 
 - **Add a tool to the shop:** in `world/shop.py`, add an arguments model,
   a function, and a `tool_spec(...)` entry in `SHOP_TOOLS`. Rules can name

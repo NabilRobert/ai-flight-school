@@ -9,7 +9,8 @@ the customer's identity is checked, fails the build.
 ## Status
 
 **Resumed on 2026-11-05, after a pause after slice 3. Slices 1 to 6 of 8
-are built, all at $0.**
+are built, all at $0. The thesis pilot's suite and tools are built; its
+runs on local models haven't started.**
 
 - **Works today:** the rule checker and the fake shop (slice 1); the
   conversation loop, with records the
@@ -21,7 +22,9 @@ are built, all at $0.**
   any language over HTTP, with the fake tools served over MCP (slice 5);
   the observer for an agent that keeps its own tools, with a suite for
   Juku's Shiori, tested against a stand-in and run against the real
-  Shiori on a scripted model, through mcp-gateway (slice 6).
+  Shiori on a scripted model, through mcp-gateway (slice 6); for the
+  thesis pilot, an Indonesian sales suite, two sales agents on a model,
+  paired customers across runs, and chat records for Project 15.
 - **Tested without a real model:** the model customer runs end to end on
   Inspect's `mockllm`. No real model has played a customer yet.
 - **Not done yet:** slice 5's timed setup test, where someone new adds
@@ -29,8 +32,8 @@ are built, all at $0.**
   person; the steps are in the [slice plan](docs/planning/slice-plan.md).
   Shiori on a real model: the scripted run proves the plumbing, not
   her judgement, and a real model's run is paid.
-- **Planned next:** a thesis pilot with simulated Indonesian sales
-  customers on local models; a paid
+- **Planned next:** the thesis pilot's three runs on local models
+  ([thesis-pilot.md](docs/planning/thesis-pilot.md)); a paid
   accuracy run with model customers (slice 7, needs a budget not yet
   funded); the write-up (slice 8). The plan is in
   [docs/planning/](docs/planning/slice-plan.md).
@@ -77,8 +80,19 @@ Try it with the commands in [Run it](#run-it).
   rules name her own tools, listed in its `tools.yaml`.
 - **The conversation loop**, on [Inspect AI](https://inspect.aisi.org.uk/):
   customer and agent take turns until the customer ends it with
-  `###DONE###` or `###GAVE_UP###`. Running out of turns or time is never a
-  pass, and an agent that crashes is an error, never a pass.
+  `###DONE###`, `###GAVE_UP###` or `###GHOSTED###` (left without a word).
+  Running out of turns or time is never a pass, and an agent that crashes
+  is an error, never a pass.
+- **A sales suite for the thesis pilot** (`examples/sales-id/`):
+  synthetic Indonesian WhatsApp chats with a fictional motorbike dealer,
+  from 12 personas, 4 goals and 16 tactics. It has no tools and no rules;
+  a chat passes when the customer ends with `###DONE###`. Two sales
+  agents run on a model (`--agent-model`): `healthy` and
+  `never_quotes_price`, the seeded degradation. A model customer opens
+  with the same line and draws with the same seed in every run, so two
+  runs pair up; `flightschool pairs` says where each pair first differs.
+- **Chat records** (`chats.jsonl`): every run also writes its chats in
+  Project 15's `ChatRecord` shape, marked `source: "synthetic"`.
 - **Records in the harness's format** (`meta.json`, `trials.jsonl`), built
   with the harness's own code. Its `compare` regrades them and gates a
   changed agent against a baseline.
@@ -130,6 +144,16 @@ uv run flightschool run examples/shiori --agent-url http://127.0.0.1:8100/chat \
 Adding `--customer-model openai/gpt-5-mini` (any Inspect model) has a
 model play the customers; that calls the provider on your key.
 
+Run the sales suite on local models through Ollama, at $0, and pair two
+runs:
+
+```bash
+uv run flightschool run examples/sales-id --sample 50 --seed 1 \
+  --agent flight_school.reference.sales_agent:healthy --agent-model ollama/llama3.2:3b \
+  --customer-model ollama/qwen3.5:4b --out runs/healthy
+uv run flightschool pairs runs/healthy runs/healthy-again
+```
+
 In GitHub Actions:
 
 ```yaml
@@ -156,16 +180,18 @@ Python 3.12 and [uv](https://docs.astral.sh/uv/). No model key unless you use
 | `flight_school/rules/` | The rule kinds (`schema.py`) and the checker (`checks.py`) |
 | `flight_school/conversation/` | Scenarios, the agent adapter, the customer (scripted or model) and its in-character checks, the loop, the scorer, the records |
 | `flight_school/gate.py` | The release gate: one exit code from a run's records |
-| `flight_school/cli.py` | The `flightschool` command: `run` and `accuracy` |
+| `flight_school/cli.py` | The `flightschool` command: `run`, `accuracy`, `serve-reference` and `pairs` |
 | `flight_school/suite.py` | Loading a suite folder (world, rules, scenarios, and an observed agent's tools) |
 | `flight_school/http/` | Adapter A2: the chat contract, the HTTP adapter, the MCP tool server, and the local server helper |
 | `flight_school/observer/` | Adapter A3: reading an agent's calls from mcp-gateway's audit log (`audit_log.py`), and the adapter (`adapter.py`) |
 | `flight_school/library/` | The seed library's entries (`schema.py`), and crossing and sampling them into scenarios (`sampler.py`) |
-| `flight_school/reference/` | The reference agent, its seeded bugs, the accuracy report, and the agent served over HTTP (`http_agent.py`) |
+| `flight_school/reference/` | The reference agent, its seeded bugs, the accuracy report, the agent served over HTTP (`http_agent.py`), and the sales agents (`sales_agent.py`) |
+| `flight_school/export/` | Chat records for Project 15 (`chats.py`) and pairing two runs' chats (`pairs.py`) |
 | `action.yml` | The GitHub Action |
 | `flight_school/config_files.py` | Loading YAML files, with errors that say what to fix |
 | `examples/shop/` | The example world, rules and scenarios; `library/` holds its seed library |
 | `examples/shiori/` | A suite for Juku's Shiori, an observed agent: her tools (`tools.yaml`), rules and scenarios |
+| `examples/sales-id/` | The thesis pilot's Indonesian sales suite: no tools or rules, a seed library and its own customer prompt |
 | `tests/fixtures/logs/` | The labelled conversations, one file per rule kind |
 | `tests/scripted_agents.py` | Agents that make fixed calls, for the loop's tests |
 | `tests/observed_stub.py` | A stand-in Shiori that writes gateway audit lines, with seeded bugs |
