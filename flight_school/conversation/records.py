@@ -6,7 +6,9 @@ pass/fail/error rules and the limit rule are the harness's, not a copy.
 Flight School adds fields the harness ignores: the shop's record of
 tool calls, the rule violations (for every trial, errored ones too), the
 stop marker, where the simulated customer broke character, and a model
-customer's seed.
+customer's seed. Beside them, `chats.jsonl` holds the conversations as
+chat records (`flight_school/export/chats.py`), vouched for by its hash in
+the meta.
 """
 
 import importlib.metadata
@@ -24,6 +26,7 @@ from flight_school.conversation.environment import Environment, RunModels
 from flight_school.conversation.loop import ConversationRecord
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.scoring import HARNESS_SCORER_NAME, harness_task
+from flight_school.export.chats import CHATS_FILE, chat_record, chats_text
 from flight_school.rules.checks import check
 from flight_school.rules.schema import RuleSet
 from flight_school.world.schema import World
@@ -79,6 +82,7 @@ def build_meta(  # noqa: PLR0913 -- the run's parts, each recorded
     task_hashes: dict[str, str],
     plan: RunPlan,
     models: RunModels,
+    chats_sha256: str,
 ) -> dict[str, Any]:
     return {
         "run_id": log.eval.run_id,
@@ -115,6 +119,7 @@ def build_meta(  # noqa: PLR0913 -- the run's parts, each recorded
             "models_reported": [],
             "harness_git": harness_commit(),
             "inspect_ai_version": importlib.metadata.version("inspect-ai"),
+            "chats_sha256": chats_sha256,
         },
         "export_version": EXPORT_VERSION,
         "totals": totals(trials),
@@ -123,5 +128,16 @@ def build_meta(  # noqa: PLR0913 -- the run's parts, each recorded
 
 def export_run(log: EvalLog, run_dir: Path, plan: RunPlan, models: RunModels) -> None:
     task_hashes = {s.id: task_hash(harness_task(plan.world, s)) for s in plan.scenarios}
-    trials = [trial_with_conversation(sample, task_hashes, plan) for sample in log.samples or []]
-    write_run(run_dir, build_meta(log, trials, task_hashes, plan, models), trials)
+    run = {"run_id": log.eval.run_id, "suite": plan.suite_name, "agent": plan.agent_name}
+    trials: list[dict[str, Any]] = []
+    chats: list[dict[str, Any]] = []
+    for sample in log.samples or []:
+        trial = trial_with_conversation(sample, task_hashes, plan)
+        trials.append(trial)
+        chats.append(chat_record(trial, ConversationRecord(store=Store(sample.store)), run))
+    text = chats_text(chats)
+    # Before the meta that vouches for it, as write_run orders its files.
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / CHATS_FILE).write_text(text, encoding="utf-8")
+    meta = build_meta(log, trials, task_hashes, plan, models, sha256_hex(text))
+    write_run(run_dir, meta, trials)

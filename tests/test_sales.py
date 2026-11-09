@@ -30,9 +30,9 @@ AGENT_REPLY = "Skuter 110 Rp18.900.000 OTR ya kak."
 Sent = list[list[ChatMessage]]
 
 
-def agent_model(sent: Sent) -> Model:
-    """A mockllm sales agent that always says AGENT_REPLY and keeps what
-    it was sent."""
+def agent_model(sent: Sent, reply: str = AGENT_REPLY) -> Model:
+    """A mockllm sales agent that always says `reply` and keeps what it
+    was sent."""
 
     def generate(
         messages: list[ChatMessage],
@@ -42,12 +42,12 @@ def agent_model(sent: Sent) -> Model:
     ) -> ModelOutput:
         del tools, tool_choice, config
         sent.append(messages)
-        return ModelOutput.from_content("mockllm", AGENT_REPLY)
+        return ModelOutput.from_content("mockllm", reply)
 
     return get_model("mockllm/model", custom_outputs=generate, memoize=False)
 
 
-def run_sales(tmp_path: Path, agent: AgentFactory, sent: Sent) -> Path:
+def run_sales(tmp_path: Path, agent: AgentFactory, sent: Sent, reply: str = AGENT_REPLY) -> Path:
     plan = RunPlan(
         SUITE.world,
         SUITE.rules,
@@ -55,7 +55,7 @@ def run_sales(tmp_path: Path, agent: AgentFactory, sent: Sent) -> Path:
         agent,
         "healthy",
         SUITE.name,
-        agent_model=agent_model(sent),
+        agent_model=agent_model(sent, reply),
     )
     run_plan(plan, tmp_path)
     return tmp_path
