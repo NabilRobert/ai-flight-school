@@ -44,6 +44,22 @@ What exists, on `feat/sales-pilot`, tested on `mockllm`:
   agent, two families, no download. These are smaller than the planned
   8–9B models, a stated limit of the pilot.
 
+**Smoke check (2026-11-09, 5 local calls, $0):**
+- `llama3.2:3b` as the healthy agent answered the first line in about 9 s,
+  model load included, in plain Indonesian. It got the DP arithmetic
+  slightly wrong (Rp3.537.500 for 15% of Rp23.500.000): a 3B agent's
+  limit, and not what the degradation tests.
+- `qwen3.5:4b` as the customer took 118 s and 2,265 tokens for one line,
+  because it thinks by default. With thinking off (now the default for
+  Ollama models) it took about 9 s, model load included, and stayed in
+  character.
+- **Estimate:** about 13 generations per chat at 4 to 6 s each, so about
+  1 minute a chat and 2 to 3.5 hours for 150. The first 5 chats are timed
+  before the rest.
+- **Memory:** `ollama ps` showed `qwen3.5:4b` at about 9 GB (its 24k
+  context) on a 16 GB Mac; with `llama3.2:3b` both take about 12 GB, so
+  nothing else heavy runs alongside.
+
 **Not built:** timestamps for slow replies (a known limit for RQ1); the
 one-page pilot note, which needs the runs.
 
