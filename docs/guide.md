@@ -189,9 +189,11 @@ flowchart TD
    before the run starts. The customer's goes in the data fingerprint, so
    the harness's `compare` refuses runs whose customers differ.
 5. **The chats are exported.** `export/chats.py` writes `chats.jsonl`, one
-   record per trial in Project 15's `ChatRecord` shape (ADR-002 there),
-   with `source: "synthetic"`, the markers taken out, and a ghosting line
-   dropped so the chat ends on the agent. Its hash is in the meta.
+   Project 15's `id_chat_records.ChatRecord` per trial (validated as it
+   is built), with `source: "synthetic"`, the markers taken out, and a
+   ghosting line dropped so the chat ends on the agent. Flight School's
+   own facts (persona, goal, tactic, seed, pair key) go in its `outcome`.
+   Its hash is in the meta.
 6. **The pairs are read.** `export/pairs.py: pair_runs` matches chats on
    (scenario, epoch) and reports the first reply where the agents differ
    and whether the customer said the same lines until then.
@@ -396,7 +398,7 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **Customer seed** | The model customer's seed, from the scenario and the epoch, so two runs give it the same draws until the agents' replies differ | `customer.py: customer_seed` |
 | **Pair key** | `(task_id, attempt)`: how two runs' trials are matched for an A/B comparison | `export/chats.py`, `export/pairs.py` |
 | **`diverged_at_turn`** | The first agent reply where two paired chats differ | `export/pairs.py: diverged_at_turn` |
-| **Chat record** | One conversation in Project 15's `ChatRecord` shape, in `chats.jsonl` beside a run | `export/chats.py: chat_record` |
+| **Chat record** | One conversation as Project 15's `ChatRecord` (the `id-chat-records` package), in `chats.jsonl` beside a run | `export/chats.py: chat_record` |
 | **Agent model role** | The model behind a model-backed in-process agent, as Inspect's `agent` role (`--agent-model`) | `run.py: model_roles`, `reference/sales_agent.py` |
 | **Model environment** | A model's name and, for a local one, its file digest and Ollama's version, read before the run | `conversation/environment.py` |
 | **Turn limit** | The most replies the agent gets. Reaching it without a stop marker is a fail | `loop.py: DEFAULT_TURN_LIMIT` |
@@ -523,8 +525,8 @@ The six rule kinds:
 - **Change the sales suite:** `examples/sales-id/library/` (personas,
   goals, tactics and the Indonesian `prompt.txt`). **Change the sales
   agents or the seeded degradation:** `reference/sales_agent.py`.
-  **Change the chat record's fields:** `export/chats.py`, the one place
-  that knows Project 15's format.
+  **Change what goes in a chat record:** `export/chats.py`; the record's
+  own fields are Project 15's, from the pinned `id-chat-records` tag.
 
 - **Add a tool to the shop:** in `world/shop.py`, add an arguments model,
   a function, and a `tool_spec(...)` entry in `SHOP_TOOLS`. Rules can name

@@ -91,8 +91,9 @@ Try it with the commands in [Run it](#run-it).
   `never_quotes_price`, the seeded degradation. A model customer opens
   with the same line and draws with the same seed in every run, so two
   runs pair up; `flightschool pairs` says where each pair first differs.
-- **Chat records** (`chats.jsonl`): every run also writes its chats in
-  Project 15's `ChatRecord` shape, marked `source: "synthetic"`.
+- **Chat records** (`chats.jsonl`): every run also writes its chats as
+  Project 15's `ChatRecord` (its `id-chat-records` package), marked
+  `source: "synthetic"`.
 - **Records in the harness's format** (`meta.json`, `trials.jsonl`), built
   with the harness's own code. Its `compare` regrades them and gates a
   changed agent against a baseline.

@@ -23,15 +23,18 @@ What exists, on `feat/sales-pilot`, tested on `mockllm`:
   seeded.
 - **Provenance:** each local model's Ollama digest and Ollama's version,
   read before the run; the customer's is in the data fingerprint.
-- **Export:** `chats.jsonl` with every run, its hash in the meta;
-  `flightschool pairs` for `diverged_at_turn` and whether the customer
+- **Export:** `chats.jsonl` with every run, built with Project 15's
+  `id_chat_records.ChatRecord` (tag v0.1.0), so every record is validated
+  as it is written; its hash is in the meta. Flight School's own facts go
+  in `outcome`. `flightschool pairs` reads the chats back with
+  `read_jsonl` and reports `diverged_at_turn` and whether the customer
   matched until then.
 - **Harness:** pinned at `ca28398`, the paired-gate merge.
   `plan-pairs --baseline 0.8 --drop 0.3` says 30 pairs catch the drop
   84% of the time, with 2.9% false alarms; 50 pairs leave margin. A
   20-point drop needs 60.
 
-**Changed from the plan, each waiting for Arthur's OK:**
+**Changed from the plan (Arthur agreed all three, 2026-11-09):**
 - **The library is written from scratch,** from the behaviours this plan
   names, not built from the pilot chats or the 24 role-play cards:
   reading those was blocked as possible personal data.
@@ -40,10 +43,6 @@ What exists, on `feat/sales-pilot`, tested on `mockllm`:
   `qwen3.5:4b` (4.0 GB) as the customer and `llama3.2:3b` (2.0 GB) as the
   agent, two families, no download. These are smaller than the planned
   8–9B models, a stated limit of the pilot.
-- **The chat record is built to ADR-002's fields** in `export/chats.py`.
-  Project 15 hasn't tagged its `ChatRecord` yet; once it does, that file
-  builds theirs, and "the export validates against Project 15's
-  `ChatRecord`" can be checked.
 
 **Not built:** timestamps for slow replies (a known limit for RQ1); the
 one-page pilot note, which needs the runs.
