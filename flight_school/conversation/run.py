@@ -15,7 +15,7 @@ from inspect_ai import eval as inspect_eval  # pyright: ignore[reportUnknownVari
 from inspect_ai.dataset import Sample
 from inspect_ai.model import Model
 
-from flight_school.conversation.environment import run_models
+from flight_school.conversation.environment import role_model, run_models
 from flight_school.conversation.loop import conversation
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.records import export_run
@@ -47,7 +47,7 @@ def build_task(plan: RunPlan) -> Task:
 
 def model_roles(plan: RunPlan) -> dict[str, str | Model] | None:
     roles = {"user": plan.customer_model, "agent": plan.agent_model}
-    named = {role: model for role, model in roles.items() if model is not None}
+    named = {role: role_model(model) for role, model in roles.items() if model is not None}
     return named or None
 
 

@@ -6,9 +6,15 @@ from typing import Any
 
 import httpx
 import pytest
+from inspect_ai.model import Model
 
 from flight_school.conversation import environment
-from flight_school.conversation.environment import ModelEnvironmentError, run_models
+from flight_school.conversation.environment import (
+    OLLAMA_EXTRA_BODY,
+    ModelEnvironmentError,
+    role_model,
+    run_models,
+)
 from flight_school.conversation.records import data_fingerprint
 from tests.test_conversation import RULES, WORLD
 
@@ -64,3 +70,17 @@ def test_a_server_that_doesnt_answer_stops_the_run(monkeypatch: pytest.MonkeyPat
 
 def test_a_hosted_model_is_recorded_by_name_without_asking_ollama() -> None:
     assert run_models("openai/gpt-5-mini", None).customer["model"] == "openai/gpt-5-mini"
+
+
+def test_a_local_model_runs_with_thinking_off_and_records_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ollama_serving(monkeypatch, [{"name": "qwen3.5:4b", "digest": DIGEST}])
+    model = role_model("ollama/qwen3.5:4b")
+    assert isinstance(model, Model)
+    assert model.config.extra_body == OLLAMA_EXTRA_BODY
+    assert run_models("ollama/qwen3.5:4b", None).customer["extra_body"] == OLLAMA_EXTRA_BODY
+
+
+def test_a_hosted_model_runs_as_given() -> None:
+    assert role_model("openai/gpt-5-mini") == "openai/gpt-5-mini"

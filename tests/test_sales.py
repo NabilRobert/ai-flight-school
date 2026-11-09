@@ -12,8 +12,9 @@ from inspect_ai.tool import ToolChoice, ToolInfo
 
 from flight_school.config_files import ConfigFileError
 from flight_school.conversation.agent import AgentFactory
+from flight_school.conversation.environment import OLLAMA_EXTRA_BODY
 from flight_school.conversation.plan import RunPlan
-from flight_school.conversation.run import run_plan
+from flight_school.conversation.run import model_roles, run_plan
 from flight_school.gate import judge
 from flight_school.library.sampler import load_library, sample_scenarios
 from flight_school.reference.sales_agent import (
@@ -113,3 +114,18 @@ def test_a_library_prompt_with_an_unknown_placeholder_is_refused(tmp_path: Path)
     (folder / "prompt.txt").write_text("Siapa kamu: {persona}. Nama: {nama}", encoding="utf-8")
     with pytest.raises(ConfigFileError, match="unknown placeholder 'nama'"):
         load_library(folder, SUITE.world)
+
+
+def test_a_local_agent_model_is_run_with_thinking_off() -> None:
+    plan = RunPlan(
+        SUITE.world,
+        SUITE.rules,
+        SUITE.scenarios,
+        healthy,
+        "healthy",
+        SUITE.name,
+        agent_model="ollama/llama3.2:3b",
+    )
+    agent = (model_roles(plan) or {})["agent"]
+    assert isinstance(agent, Model)
+    assert agent.config.extra_body == OLLAMA_EXTRA_BODY
