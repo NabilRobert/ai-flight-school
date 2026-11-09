@@ -6,8 +6,15 @@ The model customer is Inspect's `user` model role, so a run picks it with
 `model_roles={"user": ...}` and tests use `mockllm` at $0. It sees the
 chat from its own side: its lines are the assistant's, the agent's are
 the user's.
+
+Two runs of the same scenario must give the customer the same draws, so
+an A/B comparison can pair them (thesis pilot): the customer opens with
+the scenario's first scripted line, and its seed comes from the scenario
+and the epoch. The draws stay the same only while the agent's replies do;
+after the first different reply, the customer reacts to it.
 """
 
+import hashlib
 from collections.abc import Awaitable, Callable, Sequence
 
 from inspect_ai.model import (
@@ -38,7 +45,13 @@ def scripted_customer(scenario: Scenario) -> Customer:
     return say
 
 
-def model_customer(scenario: Scenario) -> Customer:
+def customer_seed(scenario_id: str, epoch: int) -> int:
+    """The same seed for the same scenario and epoch, in every run."""
+    digest = hashlib.sha256(f"{scenario_id}#{epoch}".encode()).digest()
+    return int.from_bytes(digest[:4])
+
+
+def model_customer(scenario: Scenario, seed: int) -> Customer:
     if not scenario.customer_prompt:
         raise ValueError(
             f"scenario {scenario.id} has no customer prompt: a model customer needs a"
@@ -47,8 +60,10 @@ def model_customer(scenario: Scenario) -> Customer:
     model = get_model(role="user", required=True)
 
     async def say(chat: Sequence[Message]) -> str:
+        if not chat:
+            return scenario.script[0]
         output = await model.generate(
-            customer_view(scenario, chat), config=GenerateConfig(seed=scenario.seed)
+            customer_view(scenario, chat), config=GenerateConfig(seed=seed)
         )
         return output.completion
 

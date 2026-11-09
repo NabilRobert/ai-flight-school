@@ -1,5 +1,7 @@
 """In-character checks (S6): the crude ways a model customer breaks a test."""
 
+import pytest
+
 from flight_school.conversation.character import character_breaks
 from flight_school.library.sampler import scenario_from
 from tests.test_library import LIBRARY
@@ -41,3 +43,17 @@ def test_a_goal_said_only_in_the_line_that_ends_the_chat_was_dropped() -> None:
 def test_a_hand_written_scenario_has_no_goal_to_drop() -> None:
     plain = SCENARIO.model_copy(update={"mentions": [], "customer_prompt": ""})
     assert character_breaks(plain, ["Hi.", "###DONE###"]) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["Saya ini bot, kak.", "sebagai AI aku gak bisa beli motor", "Ada yang bisa saya bantu?"],
+)
+def test_an_indonesian_customer_that_calls_itself_a_bot_breaks_character(line: str) -> None:
+    [found] = character_breaks(SCENARIO, [f"o1. {line}", "###DONE###"])
+    assert found.startswith("line 1: says it is a test")
+
+
+def test_a_customer_asking_whether_the_agent_is_a_bot_stays_in_character() -> None:
+    # "Is this a bot?" is a sales tactic, not the customer giving itself away.
+    assert character_breaks(SCENARIO, ["o1. Ini bot ya kak?", "###DONE###"]) == []

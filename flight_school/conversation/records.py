@@ -3,9 +3,10 @@
 
 Each trial is built by the harness's own `trial_from_sample`, so the
 pass/fail/error rules and the limit rule are the harness's, not a copy.
-Flight School adds three fields the harness ignores: the shop's record of
+Flight School adds fields the harness ignores: the shop's record of
 tool calls, the rule violations (for every trial, errored ones too), the
-stop marker, and where the simulated customer broke character.
+stop marker, where the simulated customer broke character, and a model
+customer's seed.
 """
 
 import importlib.metadata
@@ -66,6 +67,7 @@ def trial_with_conversation(
         trial["violations"] = [asdict(violation) for violation in violations]
     trial["stop_marker"] = record.stop_marker
     trial["character_breaks"] = record.character_breaks
+    trial["customer_seed"] = record.customer_seed
     return trial
 
 

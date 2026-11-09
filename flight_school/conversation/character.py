@@ -20,7 +20,13 @@ from flight_school.conversation.scenario import Scenario, stop_marker_in
 REVEALS_TEST = re.compile(
     r"\bas an ai\b|\blanguage model\b|\bthis is (a|just a) (test|simulation)\b"
     r"|\bsimulated customer\b|\brole-?play|\bmy instructions\b|\bsystem prompt\b"
-    r"|\bhow (can|may) i (help|assist) you\b",
+    r"|\bhow (can|may) i (help|assist) you\b"
+    # The same in informal Indonesian (the sales suite). First person only:
+    # a customer asking the agent "ini bot ya?" is a tactic, not a break.
+    r"|\b(saya|aku|gue|gw) (ini |adalah |cuma |hanya )?(sebuah )?(ai|bot|model bahasa)\b"
+    r"|\bsebagai (sebuah )?(ai|model bahasa)\b|\bini (cuma |hanya )?(tes|simulasi)\b"
+    r"|\bpelanggan simulasi\b|\binstruksi (saya|aku)\b"
+    r"|\bada yang bisa (saya|aku|kami) bantu\b",
     re.IGNORECASE,
 )
 # Eight words in a row from the prompt is copying, not coincidence. The
