@@ -1,0 +1,10 @@
+# A sales chat for the thesis pilot (docs/planning/thesis-pilot.md). The
+# agents call no tools, so the world only names the prospect every
+# scenario is about, and the shop's data never changes. Made up.
+customers:
+  - id: calon-pembeli
+    name: Calon pembeli
+    email: ""
+    address: ""
+    subscription: active
+orders: []
