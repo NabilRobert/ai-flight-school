@@ -228,7 +228,8 @@ fakes can't be guaranteed. Kept as a later option.
   `tools.yaml`, and its rules are checked against those. `max_calls`
   without `per_argument` counts per conversation, for `request_replan`,
   which takes no arguments.
-- **Spike 5, answered from the code (to confirm in the scripted run):**
+- **Spike 5, answered from the code and confirmed by the scripted run
+  (2026-11-06):**
   the audit log gives each call's tool and arguments (fields named like
   secrets are redacted; none of Shiori's are) and whether it ran, but not
   the tool's output, only its hash. So a rule can't see what planted text

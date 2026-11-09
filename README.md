@@ -8,8 +8,8 @@ the customer's identity is checked, fails the build.
 
 ## Status
 
-**Resumed on 2026-11-05, after a pause after slice 3. Slices 1 to 5 of 8
-are built, and slice 6 in part, all at $0.**
+**Resumed on 2026-11-05, after a pause after slice 3. Slices 1 to 6 of 8
+are built, all at $0.**
 
 - **Works today:** the rule checker and the fake shop (slice 1); the
   conversation loop, with records the
@@ -20,16 +20,17 @@ are built, and slice 6 in part, all at $0.**
   the model-customer path and the in-character checks (slice 4); agents in
   any language over HTTP, with the fake tools served over MCP (slice 5);
   the observer for an agent that keeps its own tools, with a suite for
-  Juku's Shiori, tested against a stand-in (slice 6, in part).
+  Juku's Shiori, tested against a stand-in and run against the real
+  Shiori on a scripted model, through mcp-gateway (slice 6).
 - **Tested without a real model:** the model customer runs end to end on
   Inspect's `mockllm`. No real model has played a customer yet.
 - **Not done yet:** slice 5's timed setup test, where someone new adds
   the gate to CI from this README in under 15 minutes (G7). It needs a
   person; the steps are in the [slice plan](docs/planning/slice-plan.md).
-  Slice 6's scripted run against the real Shiori, on Juku's eval stack,
-  is waiting for time on that stack; no result exists yet.
+  Shiori on a real model: the scripted run proves the plumbing, not
+  her judgement, and a real model's run is paid.
 - **Planned next:** a thesis pilot with simulated Indonesian sales
-  customers on local models; the run against the real Shiori (slice 6); a paid
+  customers on local models; a paid
   accuracy run with model customers (slice 7, needs a budget not yet
   funded); the write-up (slice 8). The plan is in
   [docs/planning/](docs/planning/slice-plan.md).
