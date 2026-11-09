@@ -8,12 +8,13 @@ the agents' replies differ; after that it reacts to a different chat. The
 gate doesn't use this; the thesis reports it.
 """
 
-import json
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-from flight_school.export.chats import CHATS_FILE, JsonObject
+from id_chat_records import ChatRecord, Role, read_jsonl
+
+from flight_school.export.chats import CHATS_FILE
 
 PairKey = tuple[str, int]
 
@@ -31,20 +32,29 @@ class Pair:
     has_same_customer: bool
 
 
-def load_chats(run_dir: Path) -> dict[PairKey, JsonObject]:
+def load_chats(run_dir: Path) -> dict[PairKey, ChatRecord]:
     path = run_dir / CHATS_FILE
     if not path.is_file():
         raise PairingError(f"{path} is missing: rerun with this version of flightschool.")
-    chats: dict[PairKey, JsonObject] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        chat: JsonObject = json.loads(line)
-        task_id, attempt = chat["outcome"]["pair_key"]
-        chats[(task_id, attempt)] = chat
+    chats: dict[PairKey, ChatRecord] = {}
+    try:
+        for chat in read_jsonl(path):
+            chats[pair_key_of(chat)] = chat
+    except ValueError as error:
+        raise PairingError(f"{path}: {error}") from error
     return chats
 
 
-def lines_of(chat: JsonObject, role: str) -> list[str]:
-    return [turn["text"] for turn in chat["turns"] if turn["role"] == role]
+def pair_key_of(chat: ChatRecord) -> PairKey:
+    match (chat.outcome or {}).get("pair_key"):
+        case [str(task_id), int(attempt)]:
+            return task_id, attempt
+        case other:
+            raise ValueError(f"chat {chat.chat_id} has no pair key [task_id, attempt]: {other!r}")
+
+
+def lines_of(chat: ChatRecord, role: Role) -> list[str]:
+    return [turn.text for turn in chat.turns if turn.role == role]
 
 
 def diverged_at_turn(agent_a: list[str], agent_b: list[str]) -> int | None:
@@ -56,9 +66,9 @@ def diverged_at_turn(agent_a: list[str], agent_b: list[str]) -> int | None:
     return None
 
 
-def pair(key: PairKey, chat_a: JsonObject, chat_b: JsonObject) -> Pair:
-    turn = diverged_at_turn(lines_of(chat_a, "agent"), lines_of(chat_b, "agent"))
-    customer_a, customer_b = lines_of(chat_a, "customer"), lines_of(chat_b, "customer")
+def pair(key: PairKey, chat_a: ChatRecord, chat_b: ChatRecord) -> Pair:
+    turn = diverged_at_turn(lines_of(chat_a, Role.AGENT), lines_of(chat_b, Role.AGENT))
+    customer_a, customer_b = lines_of(chat_a, Role.CUSTOMER), lines_of(chat_b, Role.CUSTOMER)
     # Reply N answers customer line N, so lines 1..N must match.
     if turn is not None:
         customer_a, customer_b = customer_a[:turn], customer_b[:turn]

@@ -20,13 +20,14 @@ from typing import Any
 from agent_eval.export import EXPORT_VERSION, run_status, totals, trial_from_sample
 from agent_eval.records import ordered_json, sha256_hex, stable_json, task_hash, write_run
 from inspect_ai.log import EvalLog, EvalSample
+from id_chat_records import ChatRecord
 from inspect_ai.util import Store
 
 from flight_school.conversation.environment import Environment, RunModels
 from flight_school.conversation.loop import ConversationRecord
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.scoring import HARNESS_SCORER_NAME, harness_task
-from flight_school.export.chats import CHATS_FILE, chat_record, chats_text
+from flight_school.export.chats import chat_record, write_chats
 from flight_school.rules.checks import check
 from flight_school.rules.schema import RuleSet
 from flight_school.world.schema import World
@@ -130,14 +131,14 @@ def export_run(log: EvalLog, run_dir: Path, plan: RunPlan, models: RunModels) ->
     task_hashes = {s.id: task_hash(harness_task(plan.world, s)) for s in plan.scenarios}
     run = {"run_id": log.eval.run_id, "suite": plan.suite_name, "agent": plan.agent_name}
     trials: list[dict[str, Any]] = []
-    chats: list[dict[str, Any]] = []
+    chats: list[ChatRecord] = []
     for sample in log.samples or []:
         trial = trial_with_conversation(sample, task_hashes, plan)
         trials.append(trial)
-        chats.append(chat_record(trial, ConversationRecord(store=Store(sample.store)), run))
-    text = chats_text(chats)
+        chat = chat_record(trial, ConversationRecord(store=Store(sample.store)), run)
+        if chat is not None:
+            chats.append(chat)
     # Before the meta that vouches for it, as write_run orders its files.
-    run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / CHATS_FILE).write_text(text, encoding="utf-8")
+    text = write_chats(chats, run_dir)
     meta = build_meta(log, trials, task_hashes, plan, models, sha256_hex(text))
     write_run(run_dir, meta, trials)

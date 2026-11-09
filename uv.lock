@@ -37,6 +37,7 @@ dependencies = [
     { name = "agent-eval-harness" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "id-chat-records" },
     { name = "mcp" },
     { name = "pydantic" },
     { name = "pyyaml" },
@@ -58,6 +59,7 @@ requires-dist = [
     { name = "agent-eval-harness", git = "https://github.com/NabilRobert/agent-eval-harness?rev=ca28398" },
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "httpx", specifier = "==0.28.1" },
+    { name = "id-chat-records", git = "https://github.com/NabilRobert/id-chat-research?subdirectory=packages%2Fid-chat-records&rev=v0.1.0" },
     { name = "mcp", specifier = "==2.3.0" },
     { name = "pydantic", specifier = "==2.14.1" },
     { name = "pyright", marker = "extra == 'dev'", specifier = "==1.1.408" },
@@ -538,6 +540,14 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cd/c4/0e5636363151a2a1795e0a77617168b9ca438e1748ec05fc9b5687f93d64/httpx2_jsfetch-1.0.tar.gz", hash = "sha256:70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60", size = 6872, upload-time = "2026-08-07T00:13:07.492Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/43/832f631d32e4f1211caa2ba368317739fe71f0b8530e4c9d15dc454bac2a/httpx2_jsfetch-1.0-py3-none-any.whl", hash = "sha256:cb916b707601e69a07721aabc8f3f6659be3a6893bc1ff5c6f9e02241df2da32", size = 6382, upload-time = "2026-08-07T00:13:06.567Z" },
+]
+
+[[package]]
+name = "id-chat-records"
+version = "0.1.0"
+source = { git = "https://github.com/NabilRobert/id-chat-research?subdirectory=packages%2Fid-chat-records&rev=v0.1.0#643641371ebc197b072e096819972adb98c7f74c" }
+dependencies = [
+    { name = "pydantic" },
 ]
 
 [[package]]
