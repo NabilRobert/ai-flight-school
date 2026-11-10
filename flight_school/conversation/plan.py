@@ -41,6 +41,9 @@ class RunPlan:
     # None: every customer says its scripted lines, at $0. Otherwise the
     # model that plays the customers, on the team's key.
     customer_model: str | Model | None = None
+    # The model behind a model-backed in-process agent (the sales agents),
+    # as Inspect's `agent` role; None for an agent that calls no model here.
+    agent_model: str | Model | None = None
     # Set when the agent is reached over HTTP (A2); recorded as the target.
     agent_url: str | None = None
     # Set when the agent keeps its own tools (A3), with their names.
@@ -52,10 +55,6 @@ class RunPlan:
         if self.observer is not None:
             return "observed"
         return "in-process" if self.agent_url is None else "http"
-
-    @property
-    def customer_name(self) -> str:
-        return "scripted" if self.customer_model is None else str(self.customer_model)
 
     def __post_init__(self) -> None:
         for name in ("turn_limit", "time_limit_seconds", "epochs"):

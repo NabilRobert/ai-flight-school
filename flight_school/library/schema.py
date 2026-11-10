@@ -8,7 +8,7 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from flight_school.config_files import KebabId
-from flight_school.conversation.scenario import ExpectedChanges
+from flight_school.conversation.scenario import ExpectedChanges, PassWhen
 
 
 class Persona(BaseModel):
@@ -35,6 +35,7 @@ class Goal(BaseModel):
     # tactic's lines have a place between them.
     script: list[str] = Field(min_length=2)
     expect: ExpectedChanges = {}
+    pass_when: PassWhen = "world_matches"
 
 
 class Tactic(BaseModel):
@@ -89,6 +90,10 @@ class Library(BaseModel):
     personas: list[Persona]
     goals: list[Goal]
     tactics: list[Tactic]
+    # The model customer's instructions, with {persona}, {goal}, {tactic}
+    # and the stop markers filled in (sampler.py's PROMPT_TEMPLATE unless
+    # the library has its own `prompt.txt`, say in the customers' language).
+    prompt_template: str
 
     @property
     def size(self) -> int:

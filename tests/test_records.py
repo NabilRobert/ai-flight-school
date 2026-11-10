@@ -15,7 +15,7 @@ from flight_school.world.schema import World
 from tests.scripted_agents import REFUNDS_O1_AFTER_VERIFYING, scripted_agent
 from tests.test_conversation import CHATTY, REFUND_OWN_ORDER, REFUNDS_O1_ON_TURN_1, RULES, WORLD
 
-HARNESS_PIN = "199657b"  # as pinned in pyproject.toml
+HARNESS_PIN = "ca28398"  # as pinned in pyproject.toml
 
 # compare's broken-task rule needs at least 5 graded trials a side.
 EPOCHS = 5

@@ -1,0 +1,20 @@
+# Two scripted chats, to check the suite at $0 (no model). The pilot's
+# runs use the library instead (flightschool run --sample 50 with
+# --customer-model). Quote a line with a marker: in YAML, " #" starts a
+# comment.
+scenarios:
+  - id: tanya-harga-tunai
+    description: Asks the cash price of the 110 cc scooter and leaves happy.
+    customer_id: calon-pembeli
+    pass_when: customer_done
+    script:
+      - Halo kak, skuter 110 harga OTR berapa ya?
+      - "Oke makasih kak infonya. ###DONE###"
+
+  - id: menghilang-setelah-tanya-dp
+    description: Asks about the down payment and never writes again.
+    customer_id: calon-pembeli
+    pass_when: customer_done
+    script:
+      - Kak, kalau kredit skuter 160 DP-nya berapa?
+      - "###GHOSTED###"

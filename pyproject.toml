@@ -11,7 +11,10 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     # The harness's record format, its graders and `compare` (ADR-018),
     # pinned to a commit as Juku pins it. It brings Inspect AI with it.
-    "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@199657b",
+    "agent-eval-harness @ git+https://github.com/NabilRobert/agent-eval-harness@ca28398",
+    # Project 15's chat record format (its ADR-002), which `chats.jsonl` is
+    # written in for the thesis. Pinned to its tag; it only brings pydantic.
+    "id-chat-records @ git+https://github.com/NabilRobert/id-chat-research@v0.1.0#subdirectory=packages/id-chat-records",
     # Adapter A2 (ADR-009): the agent's chat endpoint over HTTP, its tools
     # over MCP. The versions Inspect already brings, pinned because Flight
     # School now imports them itself.

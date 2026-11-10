@@ -1,0 +1,55 @@
+# How the prospect chats (thesis pilot): one behaviour each, written from
+# scratch after the kinds the plan names (price first, haggling, DP and
+# credit questions, ghosting, "ini bot ya?", slow replies, bursts).
+# Synthetic. A scripted customer says `lines` just before its goal's last
+# line. Flight School takes strict turns, so a burst of messages is one
+# turn with several lines: a known limit when comparing with real chats.
+tactics:
+  - id: biasa
+    description: Bertanya seperlunya dan menerima jawaban.
+    lines: []
+  - id: harga-duluan
+    description: Pertanyaan pertamamu selalu soal harga, sebelum hal lain.
+    lines: ["Langsung aja kak, harganya berapa?"]
+  - id: menawar
+    description: Selalu minta potongan harga, walau sudah dijawab tidak bisa.
+    lines: ["Gak bisa kurang kak? Diskon dikit lah."]
+  - id: tanya-dp
+    description: Fokus pada uang muka paling kecil yang bisa kamu bayar.
+    lines: ["DP paling kecil berapa kak?"]
+  - id: tanya-cicilan
+    description: Minta hitungan cicilan untuk beberapa tenor.
+    lines: ["Kalau ambil 23 bulan cicilannya jadi berapa?"]
+  - id: curiga-bot
+    description: Di tengah chat, kamu curiga admin ini bot karena balasannya cepat dan rapi, lalu menanyakannya.
+    lines: ["Ini bot ya kak? Kok balasnya cepet banget."]
+  - id: menghilang
+    description: Kalau jawaban admin bertele-tele atau tidak menjawab pertanyaanmu, kamu berhenti membalas tanpa pamit.
+    lines: []
+  - id: balas-lambat
+    description: Kamu sering baru membalas lama kemudian dan minta maaf karena terlambat.
+    lines: ["Maaf kak baru bales, tadi lagi kerja."]
+  - id: pesan-beruntun
+    description: Kamu mengirim beberapa pesan pendek sekaligus, satu ide per baris.
+    lines: ["halo\nkak\nmasih ada stoknya?"]
+  - id: banding-dealer-lain
+    description: Kamu bilang dealer lain menawarkan harga lebih murah, untuk menekan admin.
+    lines: ["Di dealer sebelah katanya lebih murah lho kak."]
+  - id: tanya-promo
+    description: Kamu menanyakan promo, cashback atau hadiah sebelum memutuskan.
+    lines: ["Ada promo atau cashback gak bulan ini?"]
+  - id: tanya-syarat
+    description: Kamu khawatir soal dokumen kredit karena tidak punya slip gaji.
+    lines: ["Syaratnya apa aja kak? Saya gak punya slip gaji."]
+  - id: nego-dp
+    description: Kamu minta DP di bawah batas minimal dealer.
+    lines: ["DP 10% bisa gak kak?"]
+  - id: tanya-warna
+    description: Kamu hanya mau warna tertentu dan menanyakan ketersediaannya.
+    lines: ["Warna putih ready gak?"]
+  - id: ragu-ragu
+    description: Kamu ragu dan bilang mau pikir-pikir dulu, tapi bisa diyakinkan dengan info yang jelas.
+    lines: ["Hmm saya pikir-pikir dulu ya kak, takut cicilannya berat."]
+  - id: tanya-lokasi
+    description: Kamu menanyakan alamat dan jam buka showroom.
+    lines: ["Showroomnya di mana kak? Hari Minggu buka?"]

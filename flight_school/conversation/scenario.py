@@ -13,7 +13,7 @@ a row nobody expected to change, and fails.
 """
 
 from pathlib import Path
-from typing import Annotated, Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -21,10 +21,13 @@ from flight_school.config_files import ConfigFileError, describe, load_model
 from flight_school.world.schema import COLLECTIONS, World
 
 # How a simulated customer ends a conversation (ADR-012). A conversation
-# that ends any other way (the turn limit) is never a pass.
+# that ends any other way (the turn limit) is never a pass. A sales
+# customer may also leave without a word (thesis pilot): that is a normal
+# ending there, not a broken run, so it gets its own marker.
 DONE_MARKER = "###DONE###"
 GAVE_UP_MARKER = "###GAVE_UP###"
-STOP_MARKERS = (DONE_MARKER, GAVE_UP_MARKER)
+GHOSTED_MARKER = "###GHOSTED###"
+STOP_MARKERS = (DONE_MARKER, GAVE_UP_MARKER, GHOSTED_MARKER)
 
 # collection -> item id -> field -> its value after the conversation.
 ExpectedChanges = dict[str, dict[str, dict[str, object]]]
@@ -36,6 +39,13 @@ ScenarioId = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(
 
 def stop_marker_in(text: str) -> str | None:
     return next((marker for marker in STOP_MARKERS if marker in text), None)
+
+
+# What makes a trial pass: the shop's data ends as `expect` says
+# (τ²-bench's check), or, where there is no data to change (a sales chat),
+# the customer ends with DONE_MARKER. The second is the simulator grading
+# itself, so its results must say so.
+PassWhen = Literal["world_matches", "customer_done"]
 
 
 class Scenario(BaseModel):
@@ -56,9 +66,7 @@ class Scenario(BaseModel):
     # incomparable (ADR-012).
     customer_prompt: str = ""
     mentions: list[str] = []
-    # Passed to a model customer, so a rerun asks the provider for the
-    # same sampling.
-    seed: int | None = None
+    pass_when: PassWhen = "world_matches"
 
     @model_validator(mode="after")
     def check_stop_markers(self) -> Self:

@@ -3,7 +3,7 @@ the checker as scorer, then the records in the harness's format.
 
 The agent runs in process, so Inspect's own model is `none`. A scripted
 customer calls no model and the run costs $0; a model customer is
-Inspect's `user` role.
+Inspect's `user` role, and a model-backed agent's model its `agent` role.
 """
 
 from pathlib import Path
@@ -13,7 +13,9 @@ from inspect_ai import Task
 # Inspect's own signature has a partly untyped parameter (`scanner`).
 from inspect_ai import eval as inspect_eval  # pyright: ignore[reportUnknownVariableType]
 from inspect_ai.dataset import Sample
+from inspect_ai.model import Model
 
+from flight_school.conversation.environment import role_model, run_models
 from flight_school.conversation.loop import conversation
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.records import export_run
@@ -43,12 +45,19 @@ def build_task(plan: RunPlan) -> Task:
     )
 
 
+def model_roles(plan: RunPlan) -> dict[str, str | Model] | None:
+    roles = {"user": plan.customer_model, "agent": plan.agent_model}
+    named = {role: role_model(model) for role, model in roles.items() if model is not None}
+    return named or None
+
+
 def run_plan(plan: RunPlan, run_dir: Path) -> None:
     """Run every scenario `plan.epochs` times and write the run's records."""
+    models = run_models(plan.customer_model, plan.agent_model)
     [log] = inspect_eval(
         build_task(plan),
         model="none",
-        model_roles=None if plan.customer_model is None else {"user": plan.customer_model},
+        model_roles=model_roles(plan),
         epochs=plan.epochs,
         log_dir=str(run_dir / INSPECT_LOG_FOLDER),
         display="none",
@@ -56,4 +65,4 @@ def run_plan(plan: RunPlan, run_dir: Path) -> None:
         # stop the others. The harness's run status says if too many did.
         fail_on_error=False,
     )
-    export_run(log, run_dir, plan)
+    export_run(log, run_dir, plan, models)

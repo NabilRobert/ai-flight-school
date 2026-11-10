@@ -1,9 +1,67 @@
-# Thesis pilot: simulated Indonesian sales customers (proposed)
+# Thesis pilot: simulated Indonesian sales customers
 
-*2026-11-04. Planned, not built. Arthur's answers are below (decided
-2026-11-04, relayed by the thesis-proposal session). Asked for
-by the thesis-proposal session; this is part B of Project 15
-(`id-chat-research`). Everything here is synthetic.*
+*2026-11-04, planned. 2026-11-09: built, not run (see "Built so far"
+below). Arthur's answers are below (decided 2026-11-04, relayed by the
+thesis-proposal session). Asked for by the thesis-proposal session; this
+is part B of Project 15 (`id-chat-research`). Everything here is
+synthetic.*
+
+## Built so far (2026-11-09, $0, no model run yet)
+
+What exists, on `feat/sales-pilot`, tested on `mockllm`:
+- **Core:** `###GHOSTED###`; `pass_when: customer_done` (the harness's
+  `result_match` over `[{"stop_marker": "###DONE###"}]`); a model customer
+  that opens with the scenario's first line and is seeded per (scenario,
+  epoch), stored as `customer_seed`; a library's own `prompt.txt`; the
+  Indonesian in-character checks ("ini bot ya?" asked of the agent isn't
+  a break; the customer calling itself a bot is).
+- **`examples/sales-id/`:** a fictional motorbike dealer; 12 personas, 4
+  goals and 16 tactics (768 crossings), an Indonesian customer prompt,
+  and two scripted chats for $0 checks.
+- **Sales agents:** `reference/sales_agent.py: healthy` and
+  `never_quotes_price`, on Inspect's `agent` role (`--agent-model`), not
+  seeded.
+- **Provenance:** each local model's Ollama digest and Ollama's version,
+  read before the run; the customer's is in the data fingerprint.
+- **Export:** `chats.jsonl` with every run, built with Project 15's
+  `id_chat_records.ChatRecord` (tag v0.1.0), so every record is validated
+  as it is written; its hash is in the meta. Flight School's own facts go
+  in `outcome`. `flightschool pairs` reads the chats back with
+  `read_jsonl` and reports `diverged_at_turn` and whether the customer
+  matched until then.
+- **Harness:** pinned at `ca28398`, the paired-gate merge.
+  `plan-pairs --baseline 0.8 --drop 0.3` says 30 pairs catch the drop
+  84% of the time, with 2.9% false alarms; 50 pairs leave margin. A
+  20-point drop needs 60.
+
+**Changed from the plan (Arthur agreed all three, 2026-11-09):**
+- **The library is written from scratch,** from the behaviours this plan
+  names, not built from the pilot chats or the 24 role-play cards:
+  reading those was blocked as possible personal data.
+- **Ollama, not llama-server:** there's no llama-server on the Mac, and
+  the disk has 15 GB free, so the plan uses the models already pulled:
+  `qwen3.5:4b` (4.0 GB) as the customer and `llama3.2:3b` (2.0 GB) as the
+  agent, two families, no download. These are smaller than the planned
+  8–9B models, a stated limit of the pilot.
+
+**Smoke check (2026-11-09, 5 local calls, $0):**
+- `llama3.2:3b` as the healthy agent answered the first line in about 9 s,
+  model load included, in plain Indonesian. It got the DP arithmetic
+  slightly wrong (Rp3.537.500 for 15% of Rp23.500.000): a 3B agent's
+  limit, and not what the degradation tests.
+- `qwen3.5:4b` as the customer took 118 s and 2,265 tokens for one line,
+  because it thinks by default. With thinking off (now the default for
+  Ollama models) it took about 9 s, model load included, and stayed in
+  character.
+- **Estimate:** about 13 generations per chat at 4 to 6 s each, so about
+  1 minute a chat and 2 to 3.5 hours for 150. The first 5 chats are timed
+  before the rest.
+- **Memory:** `ollama ps` showed `qwen3.5:4b` at about 9 GB (its 24k
+  context) on a 16 GB Mac; with `llama3.2:3b` both take about 12 GB, so
+  nothing else heavy runs alongside.
+
+**Not built:** timestamps for slow replies (a known limit for RQ1); the
+one-page pilot note, which needs the runs.
 
 ## What the thesis needs from Flight School
 

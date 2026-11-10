@@ -1,0 +1,4 @@
+# No rules: a sales chat has no tools to misuse, so the checker finds
+# nothing and only task success decides (whether the customer ended with
+# ###DONE###, which is the simulator grading itself).
+rules: []

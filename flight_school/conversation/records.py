@@ -3,9 +3,12 @@
 
 Each trial is built by the harness's own `trial_from_sample`, so the
 pass/fail/error rules and the limit rule are the harness's, not a copy.
-Flight School adds three fields the harness ignores: the shop's record of
+Flight School adds fields the harness ignores: the shop's record of
 tool calls, the rule violations (for every trial, errored ones too), the
-stop marker, and where the simulated customer broke character.
+stop marker, where the simulated customer broke character, and a model
+customer's seed. Beside them, `chats.jsonl` holds the conversations as
+chat records (`flight_school/export/chats.py`), vouched for by its hash in
+the meta.
 """
 
 import importlib.metadata
@@ -17,21 +20,25 @@ from typing import Any
 from agent_eval.export import EXPORT_VERSION, run_status, totals, trial_from_sample
 from agent_eval.records import ordered_json, sha256_hex, stable_json, task_hash, write_run
 from inspect_ai.log import EvalLog, EvalSample
+from id_chat_records import ChatRecord
 from inspect_ai.util import Store
 
+from flight_school.conversation.environment import Environment, RunModels
 from flight_school.conversation.loop import ConversationRecord
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.scoring import HARNESS_SCORER_NAME, harness_task
+from flight_school.export.chats import chat_record, write_chats
 from flight_school.rules.checks import check
 from flight_school.rules.schema import RuleSet
 from flight_school.world.schema import World
 
 
-def data_fingerprint(world: World, rules: RuleSet, customer: str) -> str:
+def data_fingerprint(world: World, rules: RuleSet, customer: Environment) -> str:
     """The world, the rules and the customer a run was checked against.
     The harness's `compare` refuses two runs whose fingerprints differ, so
-    a model-customer run is never compared with a scripted one. Hashed from
-    the parsed files, so a comment edit doesn't make runs incomparable."""
+    a model-customer run is never compared with a scripted one, nor with
+    one whose customer model file or server differs. Hashed from the
+    parsed files, so a comment edit doesn't make runs incomparable."""
     data = {"world": world.model_dump(), "rules": rules.model_dump(), "customer": customer}
     return sha256_hex(stable_json(data))
 
@@ -66,11 +73,17 @@ def trial_with_conversation(
         trial["violations"] = [asdict(violation) for violation in violations]
     trial["stop_marker"] = record.stop_marker
     trial["character_breaks"] = record.character_breaks
+    trial["customer_seed"] = record.customer_seed
     return trial
 
 
-def build_meta(
-    log: EvalLog, trials: list[dict[str, Any]], task_hashes: dict[str, str], plan: RunPlan
+def build_meta(  # noqa: PLR0913 -- the run's parts, each recorded
+    log: EvalLog,
+    trials: list[dict[str, Any]],
+    task_hashes: dict[str, str],
+    plan: RunPlan,
+    models: RunModels,
+    chats_sha256: str,
 ) -> dict[str, Any]:
     return {
         "run_id": log.eval.run_id,
@@ -93,8 +106,8 @@ def build_meta(
             "address": plan.agent_url,
         },
         "agent": {
-            "model": plan.agent_name,
-            "model_args": {},
+            "model": str(plan.agent_model or plan.agent_name),
+            "model_args": models.agent,
             "system_prompt_sha256": None,
             "system_prompt": None,
             "tool_allowlist": sorted(plan.tool_names),
@@ -102,17 +115,30 @@ def build_meta(
             "epochs": plan.epochs,
         },
         "provenance": {
-            "data_fingerprint": data_fingerprint(plan.world, plan.rules, plan.customer_name),
+            "data_fingerprint": data_fingerprint(plan.world, plan.rules, models.customer),
+            "customer": models.customer,
             "models_reported": [],
             "harness_git": harness_commit(),
             "inspect_ai_version": importlib.metadata.version("inspect-ai"),
+            "chats_sha256": chats_sha256,
         },
         "export_version": EXPORT_VERSION,
         "totals": totals(trials),
     }
 
 
-def export_run(log: EvalLog, run_dir: Path, plan: RunPlan) -> None:
+def export_run(log: EvalLog, run_dir: Path, plan: RunPlan, models: RunModels) -> None:
     task_hashes = {s.id: task_hash(harness_task(plan.world, s)) for s in plan.scenarios}
-    trials = [trial_with_conversation(sample, task_hashes, plan) for sample in log.samples or []]
-    write_run(run_dir, build_meta(log, trials, task_hashes, plan), trials)
+    run = {"run_id": log.eval.run_id, "suite": plan.suite_name, "agent": plan.agent_name}
+    trials: list[dict[str, Any]] = []
+    chats: list[ChatRecord] = []
+    for sample in log.samples or []:
+        trial = trial_with_conversation(sample, task_hashes, plan)
+        trials.append(trial)
+        chat = chat_record(trial, ConversationRecord(store=Store(sample.store)), run)
+        if chat is not None:
+            chats.append(chat)
+    # Before the meta that vouches for it, as write_run orders its files.
+    text = write_chats(chats, run_dir)
+    meta = build_meta(log, trials, task_hashes, plan, models, sha256_hex(text))
+    write_run(run_dir, meta, trials)

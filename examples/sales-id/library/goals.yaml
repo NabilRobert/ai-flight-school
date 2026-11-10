@@ -1,0 +1,52 @@
+# What the prospect wants (thesis pilot), from the outcomes a sales chat
+# usually has: buy, book a visit, compare, or just check a price.
+# Synthetic, written from scratch. Pass is "the customer ended with
+# ###DONE###" (pass_when: customer_done): the simulator grading itself, a
+# placeholder until Project 15's rubric judge exists. `mentions` are what
+# the customer must bring up, or it has dropped its goal.
+# Quote a line with a marker: in YAML, " #" starts a comment.
+goals:
+  - id: beli-kredit
+    description: >-
+      Kamu mau membeli skuter 125 cc secara kredit. Kamu perlu tahu harga,
+      DP dan cicilan per bulan sebelum memutuskan. Selesai kalau angkanya
+      jelas dan cocok untukmu.
+    customer_id: calon-pembeli
+    pass_when: customer_done
+    mentions: ["125", kredit, cicil]
+    script:
+      - mau tanya skuter 125 cc, bisa kredit gak?
+      - "Oke kak, saya ambil yang hitam ya. ###DONE###"
+
+  - id: atur-kunjungan
+    description: >-
+      Kamu ingin melihat langsung dan test ride skuter 160 cc hari Sabtu.
+      Selesai kalau jadwal kunjungan sudah disepakati.
+    customer_id: calon-pembeli
+    pass_when: customer_done
+    mentions: [showroom, test ride, datang, sabtu]
+    script:
+      - kalau mau lihat skuter 160 langsung, bisa ke showroom hari Sabtu?
+      - "Sip, Sabtu jam 10 saya datang. ###DONE###"
+
+  - id: bandingkan-model
+    description: >-
+      Kamu bingung memilih antara skuter 110 cc dan motor bebek 125 cc.
+      Selesai kalau kamu tahu bedanya dan selisih harganya.
+    customer_id: calon-pembeli
+    pass_when: customer_done
+    mentions: ["110", bebek]
+    script:
+      - bedanya skuter 110 sama motor bebek 125 apa ya? selisih harganya berapa?
+      - "Oke makasih kak, sekarang jelas. ###DONE###"
+
+  - id: cek-harga
+    description: >-
+      Kamu hanya ingin tahu harga OTR skuter 110 cc, belum tentu membeli.
+      Selesai kalau sudah dapat harganya.
+    customer_id: calon-pembeli
+    pass_when: customer_done
+    mentions: [harga, berapa]
+    script:
+      - skuter 110 harga OTR berapa?
+      - "Oke kak makasih infonya. ###DONE###"

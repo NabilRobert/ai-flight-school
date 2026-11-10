@@ -4,7 +4,8 @@
   against the agent, writes the records, and exits with the gate's code:
   0 pass, 1 blocked, 2 inconclusive. `--sample N --seed S` runs N
   scenarios drawn from the suite's seed library instead, and
-  `--customer-model` has a model play the customers. `--agent-url`
+  `--customer-model` has a model play the customers. `--agent-model`
+  gives a model-backed in-process agent its model. `--agent-url`
   reaches an agent over HTTP instead, with its tools served over MCP;
   add `--audit-log` and `--caller` for an agent that keeps its own tools
   behind mcp-gateway, whose calls are read from the gateway's log.
@@ -12,6 +13,8 @@
   to try `--agent-url` against.
 - `flightschool accuracy` measures Flight School itself on the reference
   agent's seeded bugs, at $0.
+- `flightschool pairs RUN_A RUN_B` says where two runs' paired chats
+  first differ, for an A/B comparison.
 """
 
 import pkgutil
@@ -28,10 +31,12 @@ from agent_eval.records import RecordError
 
 from flight_school.config_files import ConfigFileError
 from flight_school.conversation.agent import AgentFactory
+from flight_school.conversation.environment import ModelEnvironmentError
 from flight_school.conversation.loop import DEFAULT_TURN_LIMIT
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.scenario import Scenario
 from flight_school.conversation.run import run_plan
+from flight_school.export.pairs import PairingError, pair_runs, summary
 from flight_school.gate import EXIT_INCONCLUSIVE, Verdict, judge
 from flight_school.http.adapter import http_agent
 from flight_school.http.serving import LOCALHOST
@@ -170,6 +175,9 @@ def run(  # noqa: PLR0913 -- each parameter is one of the command's options
     customer_model: Annotated[
         str | None, typer.Option(help="Inspect model for the customers; costs on your key")
     ] = None,
+    agent_model: Annotated[
+        str | None, typer.Option(help="Inspect model for a model-backed --agent")
+    ] = None,
     audit_log: Annotated[
         Path | None, typer.Option(help="observed agent: the gateway's audit log")
     ] = None,
@@ -191,12 +199,13 @@ def run(  # noqa: PLR0913 -- each parameter is one of the command's options
                 turn_limit=turn_limit,
                 epochs=epochs,
                 customer_model=customer_model,
+                agent_model=agent_model,
                 agent_url=agent_url,
                 observer=observer,
                 tool_names=tuple(loaded.observed_tools or SHOP_TOOLS),
             )
             run_plan(plan, out)
-    except (ConfigFileError, AgentLoadError, ValueError) as error:
+    except (ConfigFileError, AgentLoadError, ModelEnvironmentError, ValueError) as error:
         raise fail(str(error)) from error
     try:
         verdict = judge(out, baseline)
@@ -240,3 +249,14 @@ def serve_reference(
     uvicorn.run(
         reference_app(cast(Bug | None, bug)), host=LOCALHOST, port=port, log_level="warning"
     )
+
+
+@app.command()
+def pairs(
+    run_a: Annotated[Path, typer.Argument()], run_b: Annotated[Path, typer.Argument()]
+) -> None:
+    """Where each pair of chats in two runs first differs."""
+    try:
+        print(summary(pair_runs(run_a, run_b)), end="")
+    except PairingError as error:
+        raise fail(str(error)) from error

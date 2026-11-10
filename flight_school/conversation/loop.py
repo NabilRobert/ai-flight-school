@@ -20,7 +20,12 @@ from pydantic import Field
 
 from flight_school.conversation.agent import AgentFactory, AgentTools, Message
 from flight_school.conversation.character import character_breaks
-from flight_school.conversation.customer import Customer, model_customer, scripted_customer
+from flight_school.conversation.customer import (
+    Customer,
+    customer_seed,
+    model_customer,
+    scripted_customer,
+)
 from flight_school.conversation.scenario import Row, Scenario, stop_marker_in, world_rows
 from flight_school.log import AgentReply, ConversationLog, ToolCall
 from flight_school.world.schema import World
@@ -37,6 +42,7 @@ class ConversationRecord(StoreModel):
     is also in the Inspect log."""
 
     customer_id: str = ""
+    customer_seed: int | None = None
     tool_calls: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
     replies: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
     customer_lines: list[str] = Field(default_factory=list[str])
@@ -65,10 +71,13 @@ def conversation(
 ) -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:  # noqa: ARG001
         scenario = scenario_of(state)
-        customer = model_customer(scenario) if has_model_customer else scripted_customer(scenario)
-        shop = FakeShop(world)
         record = state.store_as(ConversationRecord)
         record.customer_id = scenario.customer_id
+        customer = scripted_customer(scenario)
+        if has_model_customer:
+            record.customer_seed = customer_seed(scenario.id, state.epoch)
+            customer = model_customer(scenario, record.customer_seed)
+        shop = FakeShop(world)
         # The sample's input is only a label; the loop builds the chat.
         state.messages = []
         tools = AgentTools(shop, signed_in_as=scenario.customer_id)
