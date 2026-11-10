@@ -4,6 +4,7 @@ their own instructions to their model, and the library's Indonesian prompt
 reaches the customer."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 from agent_eval.records import load_run
@@ -14,6 +15,7 @@ from flight_school.config_files import ConfigFileError
 from flight_school.conversation.agent import AgentFactory
 from flight_school.conversation.environment import OLLAMA_EXTRA_BODY
 from flight_school.conversation.plan import RunPlan
+from flight_school.conversation import run
 from flight_school.conversation.run import model_roles, run_plan
 from flight_school.gate import judge
 from flight_school.library.sampler import load_library, sample_scenarios
@@ -129,3 +131,31 @@ def test_a_local_agent_model_is_run_with_thinking_off() -> None:
     agent = (model_roles(plan) or {})["agent"]
     assert isinstance(agent, Model)
     assert agent.config.extra_body == OLLAMA_EXTRA_BODY
+
+
+def test_a_run_on_a_local_model_has_one_chat_at_a_time(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    passed: dict[str, Any] = {}
+
+    def fake_eval(task: object, **options: Any) -> list[object]:
+        passed.update(options)
+        return [object()]
+
+    def skip(*arguments: object) -> None:
+        del arguments
+
+    monkeypatch.setattr(run, "run_models", skip)
+    monkeypatch.setattr(run, "inspect_eval", fake_eval)
+    monkeypatch.setattr(run, "export_run", skip)
+    plan = RunPlan(
+        SUITE.world,
+        SUITE.rules,
+        SUITE.scenarios,
+        healthy,
+        "healthy",
+        SUITE.name,
+        agent_model="ollama/llama3.2:3b",
+    )
+    run_plan(plan, tmp_path)
+    assert passed["max_samples"] == 1

@@ -15,7 +15,7 @@ from inspect_ai import eval as inspect_eval  # pyright: ignore[reportUnknownVari
 from inspect_ai.dataset import Sample
 from inspect_ai.model import Model
 
-from flight_school.conversation.environment import role_model, run_models
+from flight_school.conversation.environment import max_samples, role_model, run_models
 from flight_school.conversation.loop import conversation
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.records import export_run
@@ -54,10 +54,12 @@ def model_roles(plan: RunPlan) -> dict[str, str | Model] | None:
 def run_plan(plan: RunPlan, run_dir: Path) -> None:
     """Run every scenario `plan.epochs` times and write the run's records."""
     models = run_models(plan.customer_model, plan.agent_model)
+    roles = model_roles(plan)
     [log] = inspect_eval(
         build_task(plan),
         model="none",
-        model_roles=model_roles(plan),
+        model_roles=roles,
+        max_samples=max_samples(list((roles or {}).values())),
         epochs=plan.epochs,
         log_dir=str(run_dir / INSPECT_LOG_FOLDER),
         display="none",

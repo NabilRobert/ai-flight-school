@@ -187,7 +187,10 @@ flowchart TD
 4. **The records name the models.** `conversation/environment.py:
    run_models` asks Ollama for each local model's file digest and version
    before the run starts. The customer's goes in the data fingerprint, so
-   the harness's `compare` refuses runs whose customers differ.
+   the harness's `compare` refuses runs whose customers differ. With a
+   local model in either role, `run.py: run_plan` runs one chat at a time
+   (`environment.py: max_samples`): Ollama queues parallel requests, and
+   the 300 s per-chat limit would count the queueing.
 5. **The chats are exported.** `export/chats.py` writes `chats.jsonl`, one
    Project 15's `id_chat_records.ChatRecord` per trial (validated as it
    is built), with `source: "synthetic"`, the markers taken out, and a
