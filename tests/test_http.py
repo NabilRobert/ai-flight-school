@@ -95,6 +95,29 @@ def test_a_call_reaches_only_its_own_conversations_shop() -> None:
     assert "unknown conversation" in guessed.content[0].text
 
 
+async def listed_tools(url: str) -> Any:
+    async with Client(url) as client:
+        return (await client.list_tools()).tools
+
+
+def test_the_tool_list_tells_an_agent_what_each_tool_does_and_which_only_read() -> None:
+    # An agent outside the repo has only this list; a guard that allows
+    # only read-only tools outside a sandbox reads the hints.
+    with running_tool_server() as tool_server:
+        url = tool_server.register(AgentTools(FakeShop(SUITE.world)))
+        tools = asyncio.run(listed_tools(url))
+    assert all(tool.description for tool in tools)
+    hints = {
+        tool.name: (tool.annotations.read_only_hint, tool.annotations.destructive_hint)
+        for tool in tools
+    }
+    reads = {"lookup_order", "list_orders", "verify_identity"}
+    writes = {"issue_refund", "cancel_subscription", "update_address", "delete_account"}
+    assert hints == {name: (True, False) for name in reads} | {
+        name: (False, True) for name in writes
+    }
+
+
 def test_a_refused_call_comes_back_as_an_mcp_error_with_the_shops_reason() -> None:
     with running_tool_server() as tool_server:
         url = tool_server.register(AgentTools(FakeShop(SUITE.world)))

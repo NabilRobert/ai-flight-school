@@ -234,7 +234,11 @@ sequenceDiagram
    `Authorization: Bearer $FLIGHTSCHOOL_AGENT_KEY` when that is set. A
    non-2xx status, a redirect, or a body that isn't a `ChatResponse`
    raises, so the trial is an error and the run inconclusive.
-4. **Tools over MCP.** The agent calls `tools/call` on `tools_url`.
+4. **Tools over MCP.** `tools/list` gives each tool's input schema, a
+   description, and MCP hints (`tool_server.py: mcp_tool`): the three
+   lookups are `readOnlyHint`, the four writes `destructiveHint`. The
+   descriptions say what a tool does, never when to use it, since that is
+   what the rules test. The agent calls `tools/call` on `tools_url`.
    `ToolServer.call` finds the conversation by its token and runs the
    call through the same `AgentTools` an in-process agent uses, so the
    shop records it, with the turn, exactly as before. A refused call
@@ -529,8 +533,9 @@ The six rule kinds:
   own fields are Project 15's, from the pinned `id-chat-records` tag.
 
 - **Add a tool to the shop:** in `world/shop.py`, add an arguments model,
-  a function, and a `tool_spec(...)` entry in `SHOP_TOOLS`. Rules can name
-  it at once.
+  a function, and a `tool_spec(...)` entry in `SHOP_TOOLS` with its
+  description (and `is_read_only=True` if it changes nothing). Rules can
+  name it at once.
 - **Change the example rules or data:** `examples/shop/rules.yaml` and
   `examples/shop/world.yaml`. Every labelled log is checked against them,
   so run the tests.
