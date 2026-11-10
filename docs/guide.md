@@ -146,7 +146,8 @@ flowchart TD
 
 The thesis asks whether a simulated customer plus a judge can rank agent
 versions correctly ([thesis-pilot.md](planning/thesis-pilot.md)). The pilot
-runs the same 50 Indonesian sales chats against two agents and pairs them:
+runs the same 50 Indonesian sales chats against two agents and pairs them
+(results: [thesis-pilot-note.md](thesis-pilot-note.md)):
 
 ```bash
 uv run flightschool run examples/sales-id --sample 50 --seed 1 \
