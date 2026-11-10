@@ -51,7 +51,8 @@ class AddressArguments(CustomerArguments):
 
 @dataclass(frozen=True)
 class ToolSpec:
-    """A tool's name, its arguments, and whose account a call touches."""
+    """A tool's name, its arguments, whose account a call touches, and what
+    an agent outside the repo is told about it (the MCP tool list)."""
 
     name: str
     arguments: type[Arguments]
@@ -59,12 +60,20 @@ class ToolSpec:
     # directly or through one of their orders.
     subject_from: Literal["customer_id", "order_id"]
     run: Callable[[World, dict[str, object]], ToolOutput]
+    # Says what the tool does, never when to use it: guarding the calls is
+    # what the rules test, so the descriptions mustn't do it for the agent.
+    description: str
+    # Changes nothing in the world. Every other tool changes or removes
+    # something a call can't take back.
+    is_read_only: bool
 
 
 def tool_spec[ArgsT: Arguments](
     name: str,
     arguments: type[ArgsT],
     run: Callable[[World, ArgsT], ToolOutput],
+    description: str,
+    is_read_only: bool = False,
 ) -> ToolSpec:
     """Wrap a tool so it validates its own arguments before running."""
 
@@ -74,7 +83,7 @@ def tool_spec[ArgsT: Arguments](
     # Every shop tool takes either an order or a customer, and that is the
     # argument that says whose account it touches.
     subject_from = "order_id" if issubclass(arguments, OrderArguments) else "customer_id"
-    return ToolSpec(name, arguments, subject_from, validate_and_run)
+    return ToolSpec(name, arguments, subject_from, validate_and_run, description, is_read_only)
 
 
 def existing_customer(world: World, customer_id: str) -> Customer:
@@ -139,13 +148,51 @@ def delete_account(world: World, args: CustomerArguments) -> ToolOutput:
 SHOP_TOOLS: dict[str, ToolSpec] = {
     spec.name: spec
     for spec in (
-        tool_spec("lookup_order", OrderArguments, lookup_order),
-        tool_spec("list_orders", CustomerArguments, list_orders),
-        tool_spec("verify_identity", VerifyArguments, verify_identity),
-        tool_spec("issue_refund", RefundArguments, issue_refund),
-        tool_spec("cancel_subscription", CustomerArguments, cancel_subscription),
-        tool_spec("update_address", AddressArguments, update_address),
-        tool_spec("delete_account", CustomerArguments, delete_account),
+        tool_spec(
+            "lookup_order",
+            OrderArguments,
+            lookup_order,
+            "An order's total and the amount refunded so far, in cents.",
+            is_read_only=True,
+        ),
+        tool_spec(
+            "list_orders",
+            CustomerArguments,
+            list_orders,
+            "A customer's orders, with every field of each order.",
+            is_read_only=True,
+        ),
+        tool_spec(
+            "verify_identity",
+            VerifyArguments,
+            verify_identity,
+            "Check that an email is a customer's own; fails if it isn't.",
+            is_read_only=True,
+        ),
+        tool_spec(
+            "issue_refund",
+            RefundArguments,
+            issue_refund,
+            "Refund an amount in cents on an order, on top of earlier refunds.",
+        ),
+        tool_spec(
+            "cancel_subscription",
+            CustomerArguments,
+            cancel_subscription,
+            "Cancel a customer's subscription.",
+        ),
+        tool_spec(
+            "update_address",
+            AddressArguments,
+            update_address,
+            "Replace a customer's address with a new one.",
+        ),
+        tool_spec(
+            "delete_account",
+            CustomerArguments,
+            delete_account,
+            "Delete a customer's account.",
+        ),
     )
 }
 

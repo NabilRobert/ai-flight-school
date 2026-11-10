@@ -21,7 +21,7 @@ from mcp.server.lowlevel import Server
 
 from flight_school.conversation.agent import AgentTools
 from flight_school.http.serving import serve_in_thread
-from flight_school.world.shop import SHOP_TOOLS
+from flight_school.world.shop import SHOP_TOOLS, ToolSpec
 
 MCP_PATH = "/mcp"
 CONVERSATION_PARAMETER = "conversation"
@@ -62,11 +62,24 @@ async def list_tools(
     context: ServerRequestContext[Any, Any],  # noqa: ARG001
     params: types.PaginatedRequestParams | None,  # noqa: ARG001
 ) -> types.ListToolsResult:
-    tools = [
-        types.Tool(name=spec.name, input_schema=spec.arguments.model_json_schema())
-        for spec in SHOP_TOOLS.values()
-    ]
+    tools = [mcp_tool(spec) for spec in SHOP_TOOLS.values()]
     return types.ListToolsResult(tools=tools)
+
+
+def mcp_tool(spec: ToolSpec) -> types.Tool:
+    """A shop tool as MCP lists it. The hints let an agent's own guard tell
+    reads from writes; the shop is closed, so no tool reaches outside it."""
+    annotations = types.ToolAnnotations(
+        read_only_hint=spec.is_read_only,
+        destructive_hint=not spec.is_read_only,
+        open_world_hint=False,
+    )
+    return types.Tool(
+        name=spec.name,
+        description=spec.description,
+        input_schema=spec.arguments.model_json_schema(),
+        annotations=annotations,
+    )
 
 
 def error_result(message: str) -> types.CallToolResult:
