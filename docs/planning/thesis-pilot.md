@@ -1,7 +1,8 @@
 # Thesis pilot: simulated Indonesian sales customers
 
-*2026-11-04, planned. 2026-11-09: built, not run (see "Built so far"
-below). Arthur's answers are below (decided 2026-11-04, relayed by the
+*2026-11-04, planned. 2026-11-09: built (see "Built so far" below).
+2026-11-11: run; the results are in the
+[pilot note](../thesis-pilot-note.md). Arthur's answers are below (decided 2026-11-04, relayed by the
 thesis-proposal session). Asked for by the thesis-proposal session; this
 is part B of Project 15 (`id-chat-research`). Everything here is
 synthetic.*
@@ -60,8 +61,7 @@ What exists, on `feat/sales-pilot`, tested on `mockllm`:
   context) on a 16 GB Mac; with `llama3.2:3b` both take about 12 GB, so
   nothing else heavy runs alongside.
 
-**Not built:** timestamps for slow replies (a known limit for RQ1); the
-one-page pilot note, which needs the runs.
+**Not built:** timestamps for slow replies (a known limit for RQ1).
 
 ## What the thesis needs from Flight School
 

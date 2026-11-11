@@ -12,6 +12,7 @@ from flight_school.conversation import environment
 from flight_school.conversation.environment import (
     OLLAMA_EXTRA_BODY,
     ModelEnvironmentError,
+    max_samples,
     role_model,
     run_models,
 )
@@ -84,3 +85,12 @@ def test_a_local_model_runs_with_thinking_off_and_records_it(
 
 def test_a_hosted_model_runs_as_given() -> None:
     assert role_model("openai/gpt-5-mini") == "openai/gpt-5-mini"
+
+
+def test_chats_on_a_local_model_run_one_at_a_time() -> None:
+    # Queued chats would time out for waiting on Ollama, not for being slow.
+    assert max_samples(["openai/gpt-5-mini", "ollama/llama3.2:3b"]) == 1
+
+
+def test_chats_on_hosted_models_keep_inspects_concurrency() -> None:
+    assert max_samples(["openai/gpt-5-mini"]) is None

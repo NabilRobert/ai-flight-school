@@ -146,7 +146,8 @@ flowchart TD
 
 The thesis asks whether a simulated customer plus a judge can rank agent
 versions correctly ([thesis-pilot.md](planning/thesis-pilot.md)). The pilot
-runs the same 50 Indonesian sales chats against two agents and pairs them:
+runs the same 50 Indonesian sales chats against two agents and pairs them
+(results: [thesis-pilot-note.md](thesis-pilot-note.md)):
 
 ```bash
 uv run flightschool run examples/sales-id --sample 50 --seed 1 \
@@ -187,7 +188,10 @@ flowchart TD
 4. **The records name the models.** `conversation/environment.py:
    run_models` asks Ollama for each local model's file digest and version
    before the run starts. The customer's goes in the data fingerprint, so
-   the harness's `compare` refuses runs whose customers differ.
+   the harness's `compare` refuses runs whose customers differ. With a
+   local model in either role, `run.py: run_plan` runs one chat at a time
+   (`environment.py: max_samples`): Ollama queues parallel requests, and
+   the 300 s per-chat limit would count the queueing.
 5. **The chats are exported.** `export/chats.py` writes `chats.jsonl`, one
    Project 15's `id_chat_records.ChatRecord` per trial (validated as it
    is built), with `source: "synthetic"`, the markers taken out, and a
@@ -234,7 +238,11 @@ sequenceDiagram
    `Authorization: Bearer $FLIGHTSCHOOL_AGENT_KEY` when that is set. A
    non-2xx status, a redirect, or a body that isn't a `ChatResponse`
    raises, so the trial is an error and the run inconclusive.
-4. **Tools over MCP.** The agent calls `tools/call` on `tools_url`.
+4. **Tools over MCP.** `tools/list` gives each tool's input schema, a
+   description, and MCP hints (`tool_server.py: mcp_tool`): the three
+   lookups are `readOnlyHint`, the four writes `destructiveHint`. The
+   descriptions say what a tool does, never when to use it, since that is
+   what the rules test. The agent calls `tools/call` on `tools_url`.
    `ToolServer.call` finds the conversation by its token and runs the
    call through the same `AgentTools` an in-process agent uses, so the
    shop records it, with the turn, exactly as before. A refused call
@@ -529,8 +537,9 @@ The six rule kinds:
   own fields are Project 15's, from the pinned `id-chat-records` tag.
 
 - **Add a tool to the shop:** in `world/shop.py`, add an arguments model,
-  a function, and a `tool_spec(...)` entry in `SHOP_TOOLS`. Rules can name
-  it at once.
+  a function, and a `tool_spec(...)` entry in `SHOP_TOOLS` with its
+  description (and `is_read_only=True` if it changes nothing). Rules can
+  name it at once.
 - **Change the example rules or data:** `examples/shop/rules.yaml` and
   `examples/shop/world.yaml`. Every labelled log is checked against them,
   so run the tests.

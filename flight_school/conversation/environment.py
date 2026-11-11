@@ -31,6 +31,11 @@ OLLAMA_EXTRA_BODY = {"reasoning": {"effort": "none"}}
 # How a model customer is seeded (customer.py: customer_seed), recorded so
 # a reader knows two runs drew the same customers.
 CUSTOMER_SEED_RULE = "sha256(task_id#epoch), first 4 bytes"
+# Chats run one at a time when a role is a local model. Inspect would run
+# 10 at once, but Ollama answers one or a few requests at a time, so the
+# rest queue, and the per-chat time limit (plan.py) counts the queueing:
+# chats would time out for waiting, not for being slow.
+LOCAL_MAX_SAMPLES = 1
 
 Environment = dict[str, object]
 
@@ -53,6 +58,13 @@ def role_model(model: str | Model) -> str | Model:
     if isinstance(model, Model) or not model.startswith(OLLAMA_PREFIX):
         return model
     return get_model(model, config=GenerateConfig(extra_body=OLLAMA_EXTRA_BODY))
+
+
+def max_samples(models: list[str | Model]) -> int | None:
+    """How many chats may run at once; None leaves Inspect's default."""
+    if any(str(model).startswith(OLLAMA_PREFIX) for model in models):
+        return LOCAL_MAX_SAMPLES
+    return None
 
 
 def ollama_details(tag: str) -> Environment:
