@@ -7,6 +7,36 @@ thesis-proposal session). Asked for by the thesis-proposal session; this
 is part B of Project 15 (`id-chat-research`). Everything here is
 synthetic.*
 
+## After the pilot (2026-11-11)
+
+- **"The customer ends DONE" misses this kind of drop.** The degraded
+  agent gave a price in 14 of 50 chats, against 39 and 42, yet its pass
+  rate fell only 6 to 14 points (corrected records), not significant at
+  50 pairs, while the two healthy runs themselves differ by 8. The simulated customer accepts "come to
+  the showroom" and still ends `###DONE###`. So the pass rule can't be
+  the measure for RQ3; **the next check is Project 15's rubric judge**
+  (part C) on the same chats, asking whether the price question was
+  answered.
+- **How many pairs a real test needs** (`agent-eval plan-pairs
+  --baseline 0.84`, about the healthy runs' pass rate, gate v3, 80% or
+  more power, about 2 to 3% false alarms):
+
+  | Drop to catch | Pairs |
+  |---|---|
+  | 14 points | 100 |
+  | 12 points | 130 |
+  | 6 points | 410 |
+
+  At about 54 s a chat on the Mac, 130 pairs per arm is about 2 hours an
+  arm. These assume the pass rule; the judge's own error rate
+  (`--grader-error`) raises them, so size the next run once the judge's
+  scores are known.
+- **With the agent seeded, the A/A run means something else.** Two runs
+  of the same agent now get the same seeds, so healthy against healthy
+  again should be identical: any difference is the server not honouring
+  the seed. Sampling noise then shows between epochs (each has its own
+  seed), so a noise check needs 2 or more epochs.
+
 ## Built so far (2026-11-09, $0, no model run yet)
 
 What exists, on `feat/sales-pilot`, tested on `mockllm`:
@@ -21,7 +51,7 @@ What exists, on `feat/sales-pilot`, tested on `mockllm`:
   and two scripted chats for $0 checks.
 - **Sales agents:** `reference/sales_agent.py: healthy` and
   `never_quotes_price`, on Inspect's `agent` role (`--agent-model`), not
-  seeded.
+  seeded in the pilot; seeded per trial since (`agent_seed`).
 - **Provenance:** each local model's Ollama digest and Ollama's version,
   read before the run; the customer's is in the data fingerprint.
 - **Export:** `chats.jsonl` with every run, built with Project 15's

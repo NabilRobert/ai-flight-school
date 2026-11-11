@@ -32,12 +32,23 @@ is a finding, not a failure of the pilot.
 "Agent gave a price" is a pattern match on the agent's lines (`Rp`, a
 `x.xxx.xxx` amount or "juta"), a rough check outside the gate.
 
+**Correction (found after the run).** 5 customer lines wrote a marker
+slightly wrong (`###GIVE_UP###`, `###GAVE_UP##`), and the loop, reading
+markers exactly, let those chats go on. In one never-quotes-price chat
+(`cek-harga.pedagang-pasar.tanya-syarat`) the customer gave up on line 2,
+went on, and ended DONE, so it passed. Read correctly, never-quotes-price
+passes 37, not 38, and only 2 chats ghosted, not 4. The committed records
+are kept as they ran; the loop now reads such markers
+(`scenario.py: stop_marker_in`), and the verdicts below say what the
+corrected records give.
+
 **The paired gate (`agent-eval compare --gate v3`, harness `ca28398`):**
 - healthy → healthy-again: no regression, +8 points (95% interval −6 to
   +24). No false alarm.
 - healthy → never-quotes-price: no regression, −4 points (−18 to +10).
+  Corrected: inconclusive, −6 points (−20 to +8).
 - healthy-again → never-quotes-price: inconclusive, −12 points (−26 to
-  +2).
+  +2). Corrected: inconclusive, −14 points (−28 to 0).
 
 **Pairs (`flightschool pairs`):** in all 50 pairs of both comparisons the
 agents' first replies already differ, and the customer's lines match up
@@ -55,20 +66,23 @@ is the scenario's scripted opening, so it can't differ.
    is the RQ3 concern in [thesis-pilot.md](planning/thesis-pilot.md). A
    rubric judge that asks "was the price question answered?" (Project
    15's part C) should see the drop; the rough price check above does.
-2. **The pairing is untested past the first reply.** The agent isn't
+2. **The pairing is untested past the first reply.** The agent wasn't
    seeded, so the arms part at reply 1 every time and the customer's
-   seed never gets to match a later line. Seeding the agent too (Ollama
-   takes a seed) would show how long the arms stay identical.
+   seed never gets to match a later line. The agent now gets the trial's
+   seed too (see "Since the pilot").
 3. **Not enough pairs for small effects.** `agent-eval plan-pairs
-   --baseline 0.84 --drop 0.12` says a 12-point drop needs 130 pairs; the
-   plan's 50 were sized for a 30-point drop.
+   --baseline 0.84` says a 12-point drop needs 130 pairs, a 14-point
+   drop 100 and a 6-point drop 410; the plan's 50 were sized for a
+   30-point drop. See [thesis-pilot.md](planning/thesis-pilot.md), "After
+   the pilot".
 
 ## Limits of the simulator
 
 - **Ghosting doesn't take.** In the `menghilang` (ghosting) tactic the
   customer ghosted 0 times in 18 chats; it ended politely instead. Across
-  all runs only 4 of 150 chats ghosted. With a 4B customer, ghosting
-  should come from the loop (stop after N turns), not from the prompt.
+  all runs only 2 of 150 chats really ghosted (4 as recorded, see the
+  correction). The tactic only said to leave "without saying goodbye"
+  when an answer dodged, and the prompt's ghosting line was generic.
 - **The 3B agent invents things:** brands such as "Yamaha" for the
   fictional dealer, and slightly wrong DP sums. That's a limit of a 3B
   model, not what the degradation tests.
@@ -79,9 +93,30 @@ is the scenario's scripted opening, so it can't differ.
 - **Smaller models than planned** (4B and 3B, not 8 to 9B), and bursts of
   messages are joined into one turn.
 
+## Since the pilot (2026-11-11, offline, not yet run on a model)
+
+- **Stop markers:** a misspelt marker now ends the chat (any case, two or
+  more hashes each side, GIVE for GAVE); a hashtag such as `#done` still
+  doesn't.
+- **Ghosting:** the `menghilang` tactic now names when to leave (no
+  number given, or "come to the showroom first"), and the prompt says a
+  ghosting message is the marker alone. Whether a 4B customer now ghosts
+  is unknown until the next local run. If it still doesn't, ghosting
+  could come from the loop instead (end the chat after N dodged turns),
+  at the cost of a rule that doesn't depend on the customer model.
+- **The agent is seeded:** a model agent gets the trial's seed
+  (`AgentTools.seed`, the customer's seed), recorded as `agent_seed` on
+  each trial and chat, and as the rule in the meta. Ollama's
+  OpenAI-compatible API lists `seed` and "reproducible outputs", and
+  Inspect passes the seed through; that it gives identical replies here
+  isn't tested yet. Two agents with different instructions still part at
+  reply 1 when their first replies differ: the seed only removes the
+  sampling noise.
+- These change every library scenario's prompt, so new runs can't be
+  compared with the pilot's records; the next pilot reruns all arms.
+
 ## Next, for the thesis sessions to decide
 
 - Grade the pilot chats with Project 15's rubric judge when it exists,
   and see whether it ranks never-quotes-price below both healthy runs.
-- Seed the agent, so pairs diverge later than reply 1.
 - Size the next run with `plan-pairs` for the effect the judge sees.

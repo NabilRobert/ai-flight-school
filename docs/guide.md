@@ -178,13 +178,16 @@ flowchart TD
 2. **The customer is the same in both runs.** `customer.py:
    model_customer` says the scenario's first scripted line as written (the
    persona's opening), then plays the library's own `prompt.txt`, in
-   Indonesian. Its seed is `customer_seed(scenario id, epoch)`, stored on
+   Indonesian. Its seed is `trial_seed(scenario id, epoch)`, stored on
    the trial as `customer_seed`. It may end with `###GHOSTED###`: leaving
    without a word is a normal ending in sales, and a fail, not an error.
+   `scenario.py: stop_marker_in` also reads a marker the model wrote a
+   little wrong (`###GIVE_UP###`), as the pilot's customers did.
 3. **The agent is a model with instructions.** `reference/sales_agent.py`
    has `healthy` and `never_quotes_price`, the seeded degradation. Its
-   model is Inspect's `agent` role (`--agent-model`), not seeded, so two
-   runs of the same agent differ only by the model's own sampling.
+   model is Inspect's `agent` role (`--agent-model`). The loop hands it
+   the same trial seed (`AgentTools.seed`), stored as `agent_seed`, so
+   two runs of the same agent should write the same replies.
 4. **The records name the models.** `conversation/environment.py:
    run_models` asks Ollama for each local model's file digest and version
    before the run starts. The customer's goes in the data fingerprint, so
@@ -401,9 +404,9 @@ missed or the correct variant is blocked (`tests/test_accuracy.py`).
 | **`signed_in_as`** | The account an observed agent's chat is signed in to, sent with each turn; agents on the fake shop aren't told it | `AgentTools.signed_in_as` |
 | **In-process adapter** | How a Python agent plugs in: a factory takes the shop's tools and returns a `reply` function for one conversation | `conversation/agent.py` |
 | **Scenario** | One conversation to run: who the customer is, their lines, and the changes the shop's data should show afterwards | `conversation/scenario.py: Scenario` |
-| **Stop marker** | `###DONE###`, `###GAVE_UP###` or `###GHOSTED###` (left without a word): how the customer ends a conversation. Only the customer's count | `scenario.py: STOP_MARKERS` |
+| **Stop marker** | `###DONE###`, `###GAVE_UP###` or `###GHOSTED###` (left without a word): how the customer ends a conversation. Only the customer's count. Any case, spaces and two or more hashes each side are read the same | `scenario.py: STOP_MARKERS`, `stop_marker_in` |
 | **`pass_when`** | What makes a trial pass: the shop's data ends as expected (`world_matches`), or the customer ends with `###DONE###` (`customer_done`, for a suite with no data to change) | `scenario.py: PassWhen`, `scoring.py: harness_task` |
-| **Customer seed** | The model customer's seed, from the scenario and the epoch, so two runs give it the same draws until the agents' replies differ | `customer.py: customer_seed` |
+| **Trial seed** | The seed for a trial, from the scenario and the epoch, given to the model customer (`customer_seed`) and a model agent (`agent_seed`), so two runs draw alike until their chats differ | `customer.py: trial_seed` |
 | **Pair key** | `(task_id, attempt)`: how two runs' trials are matched for an A/B comparison | `export/chats.py`, `export/pairs.py` |
 | **`diverged_at_turn`** | The first agent reply where two paired chats differ | `export/pairs.py: diverged_at_turn` |
 | **Chat record** | One conversation as Project 15's `ChatRecord` (the `id-chat-records` package), in `chats.jsonl` beside a run | `export/chats.py: chat_record` |
