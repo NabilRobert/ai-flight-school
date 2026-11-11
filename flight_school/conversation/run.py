@@ -39,6 +39,7 @@ def build_task(plan: RunPlan) -> Task:
             plan.world,
             plan.turn_limit,
             has_model_customer=plan.customer_model is not None,
+            has_model_agent=plan.agent_model is not None,
         ),
         scorer=conversation_scorer(plan.world, plan.rules),
         time_limit=plan.time_limit_seconds,

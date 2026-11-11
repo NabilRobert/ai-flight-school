@@ -9,16 +9,17 @@ each a model with instructions, for a fictional motorbike dealer:
   causes should be large enough for 50 pairs to see.
 
 The model is Inspect's `agent` role (`flightschool run --agent-model`),
-so the pilot runs it on a local model at $0. It isn't seeded: two runs of
-the same agent differ only by the model's own sampling, which is what the
-A/A run (healthy against healthy again) measures. They contain no
-company's prompt or code; the dealer and its prices are made up.
+so the pilot runs it on a local model at $0. It passes the trial's seed
+(`AgentTools.seed`) to its model, so two runs of the same agent on the
+same scenario and epoch should write the same replies; sampling noise
+then shows between epochs, not between runs. They contain no company's
+prompt or code; the dealer and its prices are made up.
 """
 
 from collections.abc import Sequence
 
 from inspect_ai.model import ChatMessage, ChatMessageAssistant, ChatMessageSystem, ChatMessageUser
-from inspect_ai.model import get_model
+from inspect_ai.model import GenerateConfig, get_model
 
 from flight_school.conversation.agent import AgentFactory, AgentTools, Message, Reply
 
@@ -69,11 +70,13 @@ def agent_view(instructions: str, chat: Sequence[Message]) -> list[ChatMessage]:
 
 def sales_agent(instructions: str) -> AgentFactory:
     def factory(tools: AgentTools) -> Reply:
-        del tools  # A sales chat has no tools: the price list is in the prompt.
+        # A sales chat calls no tools (the price list is in the prompt);
+        # it only takes the trial's seed from them.
         model = get_model(role="agent", required=True)
+        config = GenerateConfig(seed=tools.seed)
 
         async def reply(chat: Sequence[Message]) -> str:
-            output = await model.generate(agent_view(instructions, chat))
+            output = await model.generate(agent_view(instructions, chat), config=config)
             return output.completion
 
         return reply

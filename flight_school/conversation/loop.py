@@ -22,7 +22,7 @@ from flight_school.conversation.agent import AgentFactory, AgentTools, Message
 from flight_school.conversation.character import character_breaks
 from flight_school.conversation.customer import (
     Customer,
-    customer_seed,
+    trial_seed,
     model_customer,
     scripted_customer,
 )
@@ -43,6 +43,7 @@ class ConversationRecord(StoreModel):
 
     customer_id: str = ""
     customer_seed: int | None = None
+    agent_seed: int | None = None
     tool_calls: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
     replies: list[dict[str, Any]] = Field(default_factory=list[dict[str, Any]])
     customer_lines: list[str] = Field(default_factory=list[str])
@@ -68,19 +69,23 @@ def conversation(
     world: World,
     turn_limit: int = DEFAULT_TURN_LIMIT,
     has_model_customer: bool = False,
+    has_model_agent: bool = False,
 ) -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:  # noqa: ARG001
         scenario = scenario_of(state)
         record = state.store_as(ConversationRecord)
         record.customer_id = scenario.customer_id
+        seed = trial_seed(scenario.id, state.epoch)
         customer = scripted_customer(scenario)
         if has_model_customer:
-            record.customer_seed = customer_seed(scenario.id, state.epoch)
-            customer = model_customer(scenario, record.customer_seed)
+            record.customer_seed = seed
+            customer = model_customer(scenario, seed)
+        if has_model_agent:
+            record.agent_seed = seed
         shop = FakeShop(world)
         # The sample's input is only a label; the loop builds the chat.
         state.messages = []
-        tools = AgentTools(shop, signed_in_as=scenario.customer_id)
+        tools = AgentTools(shop, signed_in_as=scenario.customer_id, seed=record.agent_seed)
         try:
             await take_turns(state, customer, tools, agent_factory, turn_limit)
         finally:

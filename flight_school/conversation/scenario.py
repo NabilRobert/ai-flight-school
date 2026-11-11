@@ -12,6 +12,7 @@ changes applied. A refund on the wrong order, or a second refund, changes
 a row nobody expected to change, and fails.
 """
 
+import re
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
@@ -37,8 +38,28 @@ Row = dict[str, object]
 ScenarioId = Annotated[str, Field(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*(\.[a-z0-9]+(-[a-z0-9]+)*)*$")]
 
 
+# A model customer doesn't always copy a marker exactly. In the thesis
+# pilot's 150 chats, 5 lines had `###GIVE_UP###` or `###GAVE_UP##`; read
+# exactly, they didn't end the chat, and one such customer went on to
+# end DONE and pass. So a marker counts with any case, two or more hashes
+# each side, spaces inside, and GIVE for GAVE. Two hashes each side keep
+# a hashtag such as "#done" from ending a chat.
+STOP_MARKER_PATTERN = re.compile(r"#{2,}\s*(DONE|G[AI]VE[ _]?UP|GHOSTED)\s*#{2,}", re.IGNORECASE)
+MARKER_BY_WORD = {"DONE": DONE_MARKER, "GAVEUP": GAVE_UP_MARKER, "GHOSTED": GHOSTED_MARKER}
+
+
 def stop_marker_in(text: str) -> str | None:
-    return next((marker for marker in STOP_MARKERS if marker in text), None)
+    """The marker that ends the chat, written exactly; the first if a line
+    has two."""
+    found = STOP_MARKER_PATTERN.search(text)
+    if found is None:
+        return None
+    word = re.sub(r"[ _]", "", found.group(1).upper()).replace("GIVE", "GAVE")
+    return MARKER_BY_WORD[word]
+
+
+def without_stop_markers(text: str) -> str:
+    return STOP_MARKER_PATTERN.sub("", text).strip()
 
 
 # What makes a trial pass: the shop's data ends as `expect` says

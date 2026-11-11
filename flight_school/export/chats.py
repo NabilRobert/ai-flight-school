@@ -16,17 +16,11 @@ from typing import Any
 from id_chat_records import ChatRecord, Role, Source, Turn, write_jsonl
 
 from flight_school.conversation.loop import ConversationRecord
-from flight_school.conversation.scenario import GHOSTED_MARKER, STOP_MARKERS
+from flight_school.conversation.scenario import GHOSTED_MARKER, without_stop_markers
 
 CHATS_FILE = "chats.jsonl"
 # A library scenario's id is "goal.persona.tactic" (sampler.py: scenario_from).
 LIBRARY_ID_PARTS = 3
-
-
-def without_markers(text: str) -> str:
-    for marker in STOP_MARKERS:
-        text = text.replace(marker, "")
-    return text.strip()
 
 
 def chat_turns(record: ConversationRecord) -> list[Turn]:
@@ -37,7 +31,7 @@ def chat_turns(record: ConversationRecord) -> list[Turn]:
         customer_lines = customer_lines[:-1]
     turns: list[Turn] = []
     for number, customer_line in enumerate(customer_lines):
-        said = [(Role.CUSTOMER, without_markers(customer_line))]
+        said = [(Role.CUSTOMER, without_stop_markers(customer_line))]
         if number < len(agent_lines):
             said.append((Role.AGENT, agent_lines[number].strip()))
         for role, text in said:
@@ -76,6 +70,7 @@ def chat_record(
             "stop_marker": record.stop_marker,
             "agent_variant": run["agent"],
             "customer_seed": record.customer_seed,
+            "agent_seed": record.agent_seed,
             "pair_key": [task_id, attempt],
         },
     )

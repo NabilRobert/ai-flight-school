@@ -10,8 +10,9 @@ the user's.
 Two runs of the same scenario must give the customer the same draws, so
 an A/B comparison can pair them (thesis pilot): the customer opens with
 the scenario's first scripted line, and its seed comes from the scenario
-and the epoch. The draws stay the same only while the agent's replies do;
-after the first different reply, the customer reacts to it.
+and the epoch (`trial_seed`, which a model agent gets too). The draws stay
+the same only while the agent's replies do; after the first different
+reply, the customer reacts to it.
 """
 
 import hashlib
@@ -45,8 +46,9 @@ def scripted_customer(scenario: Scenario) -> Customer:
     return say
 
 
-def customer_seed(scenario_id: str, epoch: int) -> int:
-    """The same seed for the same scenario and epoch, in every run."""
+def trial_seed(scenario_id: str, epoch: int) -> int:
+    """The same seed for the same scenario and epoch, in every run. The
+    model customer and a model agent both use it."""
     digest = hashlib.sha256(f"{scenario_id}#{epoch}".encode()).digest()
     return int.from_bytes(digest[:4])
 

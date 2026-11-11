@@ -8,7 +8,7 @@ from agent_eval.records import load_run
 from inspect_ai.model import ChatMessage, GenerateConfig, Model, ModelOutput, get_model
 from inspect_ai.tool import ToolChoice, ToolInfo
 
-from flight_school.conversation.customer import CHAT_OPENED, customer_seed
+from flight_school.conversation.customer import CHAT_OPENED, trial_seed
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation.run import run_plan
 from flight_school.gate import EXIT_INCONCLUSIVE, EXIT_PASS, judge
@@ -84,7 +84,7 @@ def test_each_epoch_gets_its_own_customer_seed_the_same_in_every_run(tmp_path: P
     calls: Calls = []
     run_with(tmp_path, customer_saying(AIKO_LINES * 2, calls), epochs=2)
     seeds = {trial["attempt"]: trial["customer_seed"] for trial in load_run(tmp_path).trials}
-    assert seeds == {epoch: customer_seed(SCENARIO.id, epoch) for epoch in (1, 2)}
+    assert seeds == {epoch: trial_seed(SCENARIO.id, epoch) for epoch in (1, 2)}
     assert seeds[1] != seeds[2]
     assert {config.seed for _, config in calls} == set(seeds.values())
 

@@ -6,7 +6,12 @@ from pathlib import Path
 import pytest
 
 from flight_school.config_files import ConfigFileError
-from flight_school.conversation.scenario import Scenario, expected_world, load_scenarios
+from flight_school.conversation.scenario import (
+    Scenario,
+    expected_world,
+    load_scenarios,
+    stop_marker_in,
+)
 from flight_school.world.schema import load_world
 
 EXAMPLES = Path(__file__).parent.parent / "examples" / "shop"
@@ -49,6 +54,33 @@ def test_unquoted_marker_lost_to_a_yaml_comment_is_explained(tmp_path: Path) -> 
 def test_stop_marker_before_the_last_line_is_refused() -> None:
     with pytest.raises(ValueError, match="line 1 has a stop marker"):
         scenario(script=["###GAVE_UP###", "bye ###DONE###"])
+
+
+@pytest.mark.parametrize(
+    ("line", "marker"),
+    [
+        # Both misspellings come from the thesis pilot's model customers.
+        ("Ya udah deh kak, makasih. ###GIVE_UP###", "###GAVE_UP###"),
+        ("Gak jadi aja ###GAVE_UP##", "###GAVE_UP###"),
+        ("### ghosted ###", "###GHOSTED###"),
+        ("oke siap ####DONE####", "###DONE###"),
+    ],
+)
+def test_a_stop_marker_a_model_customer_misspelt_still_ends_the_chat(
+    line: str, marker: str
+) -> None:
+    assert stop_marker_in(line) == marker
+
+
+@pytest.mark.parametrize(
+    "line", ["Promo #done deal ya kak", "#GHOSTED", "## DONE", "#DONE##", "##DONE#"]
+)
+def test_a_hashtag_or_half_marker_does_not_end_the_chat(line: str) -> None:
+    assert stop_marker_in(line) is None
+
+
+def test_the_first_marker_in_a_line_is_the_one_that_ends_the_chat() -> None:
+    assert stop_marker_in("###GHOSTED### ###DONE###") == "###GHOSTED###"
 
 
 def test_repeated_scenario_id_is_refused(tmp_path: Path) -> None:

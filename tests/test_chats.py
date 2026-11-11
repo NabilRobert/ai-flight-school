@@ -107,6 +107,11 @@ def test_a_line_that_was_only_a_stop_marker_leaves_no_empty_turn() -> None:
     assert [turn.text for turn in chat_turns(record)] == ["harga?", "Rp18,9 juta."]
 
 
+def test_a_misspelt_stop_marker_is_taken_out_of_the_text_too() -> None:
+    record = record_of(["harga?", "mahal ah ###GIVE_UP###"], ["Rp18,9 juta."], "###GAVE_UP###")
+    assert chat_turns(record)[-1].text == "mahal ah"
+
+
 def test_two_runs_with_the_same_replies_never_diverge(tmp_path: Path, sales_run: Path) -> None:
     again = run_sales(tmp_path, healthy, [])
     pairs = pair_runs(sales_run, again)

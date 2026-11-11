@@ -8,5 +8,5 @@ Cara kamu chat: {tactic}
 
 Tulis satu pesan pendek per giliran, dalam bahasa Indonesia santai seperti
 di WhatsApp. Kalau urusanmu sudah beres, akhiri pesanmu dengan {done}.
-Kalau kamu menyerah dan pamit, akhiri dengan {gave_up}. Kalau kamu memilih
-menghilang tanpa membalas lagi, tulis hanya {ghosted}.
+Kalau kamu menyerah dan pamit, akhiri dengan {gave_up}. Kalau kamu pergi
+tanpa pamit, jangan tulis kata apa pun: seluruh pesanmu hanya {ghosted}.

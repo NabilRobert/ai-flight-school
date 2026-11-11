@@ -90,8 +90,9 @@ Try it with the commands in [Run it](#run-it).
   a chat passes when the customer ends with `###DONE###`. Two sales
   agents run on a model (`--agent-model`): `healthy` and
   `never_quotes_price`, the seeded degradation. A model customer opens
-  with the same line and draws with the same seed in every run, so two
-  runs pair up; `flightschool pairs` says where each pair first differs.
+  with the same line, and the customer and a model agent draw with the
+  same seed in every run, so two runs pair up; `flightschool pairs` says
+  where each pair first differs.
 - **Chat records** (`chats.jsonl`): every run also writes its chats as
   Project 15's `ChatRecord` (its `id-chat-records` package), marked
   `source: "synthetic"`.
