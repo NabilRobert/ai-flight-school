@@ -5,8 +5,8 @@ Each trial is built by the harness's own `trial_from_sample`, so the
 pass/fail/error rules and the limit rule are the harness's, not a copy.
 Flight School adds fields the harness ignores: the shop's record of
 tool calls, the rule violations (for every trial, errored ones too), the
-stop marker, where the simulated customer broke character, and a model
-customer's seed. Beside them, `chats.jsonl` holds the conversations as
+stop marker, where the simulated customer broke character, and the
+seeds a model customer and a model agent were given. Beside them, `chats.jsonl` holds the conversations as
 chat records (`flight_school/export/chats.py`), vouched for by its hash in
 the meta.
 """
@@ -74,6 +74,7 @@ def trial_with_conversation(
     trial["stop_marker"] = record.stop_marker
     trial["character_breaks"] = record.character_breaks
     trial["customer_seed"] = record.customer_seed
+    trial["agent_seed"] = record.agent_seed
     return trial
 
 

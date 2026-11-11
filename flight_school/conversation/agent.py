@@ -26,13 +26,18 @@ class AgentTools:
     """What the agent gets: the shop's tools. The loop, not the agent,
     stamps each call with the turn it happened in."""
 
-    def __init__(self, shop: FakeShop, signed_in_as: str = "") -> None:
+    def __init__(self, shop: FakeShop, signed_in_as: str = "", seed: int | None = None) -> None:
         self._shop = shop
         self.turn = 0
         # The account the chat is signed in to. Only an observed agent (A3)
         # is told it, as its own backend would know it; an agent on the
         # fake shop must find out who it is talking to.
         self.signed_in_as = signed_in_as
+        # The trial's seed when the run's agent is a model (the `agent`
+        # role), for it to pass to that model: two runs of the same
+        # scenario then draw alike while the chat is the same, so their
+        # pairs stay comparable (thesis pilot). None otherwise.
+        self.seed = seed
 
     def call(self, tool: str, arguments: dict[str, object]) -> ToolCall:
         """Run one tool. A refused call comes back with `succeeded` False

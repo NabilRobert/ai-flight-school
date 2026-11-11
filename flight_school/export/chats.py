@@ -70,6 +70,7 @@ def chat_record(
             "stop_marker": record.stop_marker,
             "agent_variant": run["agent"],
             "customer_seed": record.customer_seed,
+            "agent_seed": record.agent_seed,
             "pair_key": [task_id, attempt],
         },
     )

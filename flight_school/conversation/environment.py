@@ -28,9 +28,10 @@ OLLAMA_TIMEOUT_SECONDS = 10
 # Ollama model runs with thinking off. Sent as Ollama's own field, since
 # Inspect drops a reasoning effort of "none" for Ollama.
 OLLAMA_EXTRA_BODY = {"reasoning": {"effort": "none"}}
-# How a model customer is seeded (customer.py: customer_seed), recorded so
-# a reader knows two runs drew the same customers.
-CUSTOMER_SEED_RULE = "sha256(task_id#epoch), first 4 bytes"
+# How a model customer and a model agent are seeded (customer.py:
+# trial_seed), recorded so a reader knows two runs drew alike. The text
+# is part of the customer's data fingerprint, so it stays as it was.
+TRIAL_SEED_RULE = "sha256(task_id#epoch), first 4 bytes"
 # Chats run one at a time when a role is a local model. Inspect would run
 # 10 at once, but Ollama answers one or a few requests at a time, so the
 # rest queue, and the per-chat time limit (plan.py) counts the queueing:
@@ -96,6 +97,8 @@ class RunModels:
 def run_models(customer_model: str | Model | None, agent_model: str | Model | None) -> RunModels:
     customer: Environment = {"model": "scripted"}
     if customer_model is not None:
-        customer = {**model_environment(customer_model), "seed": CUSTOMER_SEED_RULE}
-    agent = {} if agent_model is None else model_environment(agent_model)
+        customer = {**model_environment(customer_model), "seed": TRIAL_SEED_RULE}
+    agent: Environment = {}
+    if agent_model is not None:
+        agent = {**model_environment(agent_model), "seed": TRIAL_SEED_RULE}
     return RunModels(customer, agent)

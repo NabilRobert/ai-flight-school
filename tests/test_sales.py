@@ -13,7 +13,8 @@ from inspect_ai.tool import ToolChoice, ToolInfo
 
 from flight_school.config_files import ConfigFileError
 from flight_school.conversation.agent import AgentFactory
-from flight_school.conversation.environment import OLLAMA_EXTRA_BODY
+from flight_school.conversation.customer import trial_seed
+from flight_school.conversation.environment import OLLAMA_EXTRA_BODY, TRIAL_SEED_RULE
 from flight_school.conversation.plan import RunPlan
 from flight_school.conversation import run
 from flight_school.conversation.run import model_roles, run_plan
@@ -33,9 +34,11 @@ AGENT_REPLY = "Skuter 110 Rp18.900.000 OTR ya kak."
 Sent = list[list[ChatMessage]]
 
 
-def agent_model(sent: Sent, reply: str = AGENT_REPLY) -> Model:
+def agent_model(
+    sent: Sent, reply: str = AGENT_REPLY, seeds: list[int | None] | None = None
+) -> Model:
     """A mockllm sales agent that always says `reply` and keeps what it
-    was sent."""
+    was sent, and the seed of each call in `seeds`."""
 
     def generate(
         messages: list[ChatMessage],
@@ -43,8 +46,10 @@ def agent_model(sent: Sent, reply: str = AGENT_REPLY) -> Model:
         tool_choice: ToolChoice,
         config: GenerateConfig,
     ) -> ModelOutput:
-        del tools, tool_choice, config
+        del tools, tool_choice
         sent.append(messages)
+        if seeds is not None:
+            seeds.append(config.seed)
         return ModelOutput.from_content("mockllm", reply)
 
     return get_model("mockllm/model", custom_outputs=generate, memoize=False)
@@ -98,6 +103,27 @@ def test_a_sales_agent_sends_its_instructions_and_the_chat_from_its_side(
 def test_the_model_agent_is_recorded_as_the_runs_agent(tmp_path: Path) -> None:
     run_sales(tmp_path, healthy, [])
     assert load_run(tmp_path).meta["agent"]["model"] == "mockllm/model"
+
+
+def test_a_model_agent_gets_the_trials_seed_for_each_scenario_and_epoch(tmp_path: Path) -> None:
+    seeds: list[int | None] = []
+    plan = RunPlan(
+        SUITE.world,
+        SUITE.rules,
+        [SUITE.scenarios[0]],
+        healthy,
+        "healthy",
+        SUITE.name,
+        epochs=2,
+        agent_model=agent_model([], seeds=seeds),
+    )
+    run_plan(plan, tmp_path)
+    expected = {trial_seed(SUITE.scenarios[0].id, epoch) for epoch in (1, 2)}
+    assert set(seeds) == expected
+    assert len(expected) == 2
+    trials = load_run(tmp_path).trials
+    assert {trial["agent_seed"] for trial in trials} == expected
+    assert load_run(tmp_path).meta["agent"]["model_args"]["seed"] == TRIAL_SEED_RULE
 
 
 def test_the_library_prompt_reaches_the_customer_in_indonesian() -> None:
