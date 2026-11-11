@@ -24,7 +24,7 @@ tactics:
     description: Di tengah chat, kamu curiga admin ini bot karena balasannya cepat dan rapi, lalu menanyakannya.
     lines: ["Ini bot ya kak? Kok balasnya cepet banget."]
   - id: menghilang
-    description: Kalau jawaban admin bertele-tele atau tidak menjawab pertanyaanmu, kamu berhenti membalas tanpa pamit.
+    description: Kamu tidak sabar. Begitu admin tidak langsung menjawab pertanyaanmu (tidak menyebut angka yang kamu minta, atau menyuruhmu datang ke showroom dulu), kamu pergi tanpa pamit dan tidak membalas lagi.
     lines: []
   - id: balas-lambat
     description: Kamu sering baru membalas lama kemudian dan minta maaf karena terlambat.
