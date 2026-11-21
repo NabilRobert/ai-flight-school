@@ -40,6 +40,17 @@ dev = [
     "types-pyyaml==6.0.12.20250915",
 ]
 
+[tool.uv]
+# A workaround until the harness moves its pin: agent-eval-harness@ca28398
+# pins opentelemetry-sdk and the OTLP exporter at 1.45.1, which has
+# GHSA-mf5v-w3w3-f6cg. 1.45.2 is the patch release with the fix. Reported
+# to the harness's session on 2026-11-21; drop this when the harness pin
+# is bumped and Flight School's harness pin follows it.
+override-dependencies = [
+    "opentelemetry-sdk==1.45.2",
+    "opentelemetry-exporter-otlp-proto-http==1.45.2",
+]
+
 [tool.ruff]
 line-length = 100
 
