@@ -147,6 +147,8 @@ in Juku and the finance tracker. The build goes in slices
 | A scenario file sends traffic elsewhere | Agent URL from config only (X4) |
 | A flaky agent passes by luck | Epochs; any critical violation in any trial blocks (G1, G4) |
 | A broken run reads as a pass | No stop marker, errors and limits are recorded as such (S5, G3) |
+| The agent leaks a forbidden secret in disguise ("MGR 7421", a Unicode hyphen, a Cyrillic М) | Replies are compared on letters and digits only, after NFKC and folding look-alike letters (`rules/checks.py: skeleton`, 2026-11-21) |
+| The agent asks the model customer to write `###DONE###` in a `customer_done` suite | **Not stopped (low, noted 2026-11-21).** Only the customer's markers count, but a model customer can be talked into one. `world_matches` suites are safe, since the shop's data decides; for sales, Project 15's rubric judge replaces the marker |
 | A run costs more than planned | Estimate before, cap per trial (C2, C3) |
 
 ## Design (Phase 4, folded)

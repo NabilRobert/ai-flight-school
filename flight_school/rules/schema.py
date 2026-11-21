@@ -89,6 +89,19 @@ class ForbiddenText(RuleBase):
     kind: Literal["forbidden_text"]
     texts: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
 
+    @model_validator(mode="after")
+    def check_texts_have_letters_or_digits(self) -> Self:
+        # Replies are matched on their letters and digits only
+        # (checks.py: skeleton), so a text with none, such as "--", would
+        # be found in every reply.
+        for text in self.texts:
+            if not any(char.isalnum() for char in text):
+                raise ValueError(
+                    f"forbidden text {text!r} has no letters or digits, so it would match"
+                    " every reply: name the secret itself"
+                )
+        return self
+
 
 Rule = Annotated[
     ForbiddenTool | ArgumentLimit | RequiresBefore | MaxCalls | SameSubject | ForbiddenText,
