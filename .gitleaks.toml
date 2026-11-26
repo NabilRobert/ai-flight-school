@@ -1,0 +1,15 @@
+# gitleaks settings: the default rules, plus one narrow exception.
+# tests/test_http.py checks that the agent key is sent to the agent but
+# never written to the records or printed. It sets a made-up 18-character
+# "fs-test..." value in FLIGHTSCHOOL_AGENT_KEY for a local test server;
+# it was never a real key. generic-api-key flags the `key = "..."` line
+# added in 5eaf22b. Only that file in that commit is allowed: an edit to
+# the line in a later commit, and every other file, are scanned as usual.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Made-up agent key in the key-redaction test"
+condition = "AND"
+commits = ["5eaf22b74aeb4b51ad9cca8704f124f9ee3b35d4"]
+paths = ['''^tests/test_http\.py$''']
