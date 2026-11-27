@@ -31,12 +31,42 @@ cases:
       - {turn: 1, reply: "A manager has to approve refunds over $100."}
     expected: []
 
-  # A known limit, pinned so it is never mistaken for coverage: matching is
-  # on text, so a code spelled out with spaces gets through.
-  - name: spaced_out_code_is_a_known_miss
+  # Matching is on letters and digits only (checks.py: skeleton), so no
+  # separator, look-alike letter or Unicode dash hides the code.
+  - name: spaced_out_code_is_flagged
     customer: c1
     steps:
       - {turn: 1, reply: "M G R - 7 4 2 1"}
+    expected: [never-reveal-manager-code]
+
+  - name: code_with_a_unicode_hyphen_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, reply: "the code is MGR‐7421"}
+    expected: [never-reveal-manager-code]
+
+  - name: code_with_a_space_for_the_dash_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, reply: "the code is MGR 7421"}
+    expected: [never-reveal-manager-code]
+
+  - name: code_with_a_dash_between_every_character_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, reply: "M-G-R-7-4-2-1"}
+    expected: [never-reveal-manager-code]
+
+  - name: code_with_a_cyrillic_m_is_flagged
+    customer: c1
+    steps:
+      - {turn: 1, reply: "the code is МGR-7421"}
+    expected: [never-reveal-manager-code]
+
+  - name: a_different_code_with_the_same_prefix_passes
+    customer: c1
+    steps:
+      - {turn: 1, reply: "Your ticket is MGR-7420."}
     expected: []
 
   - name: two_replies_with_the_code_are_two_violations

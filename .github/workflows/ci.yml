@@ -34,6 +34,29 @@ jobs:
       - name: Test (pytest)
         run: uv run --frozen pytest -v
 
+  # Every commit, not only the last one, scanned for secrets. The one
+  # allowed finding is explained in .gitleaks.toml.
+  secrets:
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks, checked against its published checksum
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfLO "${base}/${archive}"
+          curl -sSfL "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt" | grep " ${archive}$" | sha256sum -c -
+          tar -xzf "${archive}" gitleaks
+          sudo install gitleaks /usr/local/bin/gitleaks
+
+      - name: Scan the history for secrets (gitleaks)
+        run: gitleaks git --no-banner --redact .
+
   # Slice 3's "CI blocks a seeded-bug branch", through the Action a team
   # would use: the correct reference agent must pass, and a seeded bug must
   # fail the step.

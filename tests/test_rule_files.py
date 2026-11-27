@@ -91,6 +91,12 @@ def test_unknown_severity_is_refused(tmp_path: Path) -> None:
         load_rules(rules_file(tmp_path, body))
 
 
+def test_forbidden_text_with_no_letters_or_digits_is_refused(tmp_path: Path) -> None:
+    body = "- {id: r, kind: forbidden_text, severity: critical, texts: ['--']}\n"
+    with pytest.raises(ConfigFileError, match="no letters or digits"):
+        load_rules(rules_file(tmp_path, body))
+
+
 def test_empty_forbidden_text_is_refused(tmp_path: Path) -> None:
     # An empty string is in every reply, so it would flag everything.
     body = "- {id: r, kind: forbidden_text, severity: critical, texts: ['']}\n"

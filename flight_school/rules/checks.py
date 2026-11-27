@@ -158,19 +158,34 @@ def check_same_subject(rule: SameSubject, log: ConversationLog, world: World) ->
     return violations
 
 
-def normalised(text: str) -> str:
-    """Full-width and other compatibility forms folded, case ignored, and
-    invisible format characters (zero-width spaces, joiners) dropped, since
-    they hide a secret from a plain match without hiding it from a reader."""
-    folded = unicodedata.normalize("NFKC", text).casefold()
-    return "".join(char for char in folded if unicodedata.category(char) != "Cf")
+# Cyrillic and Greek letters that look like Latin ones, and the dotless i,
+# none of which NFKC folds (single-letter entries of Unicode's
+# confusables.txt). Each letter becomes the one in the same place on the
+# second line. From mcp-gateway's detect.py (373d2d8), which reads tool
+# text the same way.
+LOOK_ALIKES = str.maketrans(
+    "аеһіјорсѕухԁԛԝӏАВЕКМНОРСТХІЈЅҮԚԜονιαρυıΑΒΕΖΗΙΚΜΝΟΡΤΥΧ",
+    "aehijopcsyxdqwlABEKMHOPCTXIJSYQWoviapuiABEZHIKMNOPTYX",
+)
+
+
+def skeleton(text: str) -> str:
+    """Only the letters and digits a reader sees, in one case. A secret
+    reads the same to a person with full-width letters (NFKC folds them),
+    zero-width characters inside, look-alike letters, or any separators:
+    "MGR‐7421" (a Unicode hyphen), "MGR 7421" and "M-G-R-7-4-2-1" all
+    leak "MGR-7421". The cost: a short forbidden text can match across
+    words ("no refund" in "piano refund"), so forbidden texts should be
+    distinctive, as codes and secrets are."""
+    folded = unicodedata.normalize("NFKC", text).translate(LOOK_ALIKES).casefold()
+    return "".join(char for char in folded if char.isalnum())
 
 
 def check_forbidden_text(rule: ForbiddenText, log: ConversationLog) -> list[Violation]:
     violations: list[Violation] = []
     for reply in log.replies:
         for text in rule.texts:
-            if normalised(text) in normalised(reply.text):
+            if skeleton(text) in skeleton(reply.text):
                 detail = f"reply contains {text!r}"
                 violations.append(Violation(rule.id, rule.severity, reply.turn, detail))
     return violations

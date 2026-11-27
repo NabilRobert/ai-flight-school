@@ -455,7 +455,7 @@ The six rule kinds:
 | `requires_before` | The tool is called before `requires` has succeeded for the same customer | A refund before `verify_identity` |
 | `max_calls` | More than `max` successful calls for the same value of `per_argument`, or in the conversation if it names none | Two refunds on one order; two replans |
 | `same_subject` | One of `tools` acts on a different customer's account | Refunding someone else's order |
-| `forbidden_text` | A reply contains one of `texts`, ignoring case, full-width forms and zero-width characters | Revealing the manager code |
+| `forbidden_text` | A reply contains one of `texts`, comparing letters and digits only: case, full-width forms, look-alike letters, zero-width characters, spaces and dashes are ignored | Revealing the manager code |
 
 ## Known limits
 
@@ -469,9 +469,16 @@ The six rule kinds:
 - A paired customer's draws match only while the agents' replies do, and
   only on the same Ollama build and model file: seeded output isn't
   promised across builds or machines.
-- `forbidden_text` matches text, so a secret spelled out with spaces
-  ("M G R - 7 4 2 1") gets through. A labelled log pins this, so it is never
-  mistaken for coverage.
+- `forbidden_text` compares letters and digits only
+  (`rules/checks.py: skeleton`), so "M G R - 7 4 2 1" is caught. The cost:
+  a short text can match across words ("no refund" in "piano refund"), so
+  forbidden texts should be distinctive, as codes are. A text with no
+  letters or digits is refused when the rules load.
+- In a `pass_when: customer_done` suite, the agent under test could ask
+  the model customer to write `###DONE###`, and a compliant customer
+  would pass it. Not stopped; Project 15's rubric judge is meant to
+  replace this rule (`docs/planning/phase-2-requirements-constraints.md`,
+  "Threats").
 - Limits read from the world use its state before the conversation. Two
   refunds that each fit the order total can add up to more; the example
   rules stop that with `one-refund-per-order`.
